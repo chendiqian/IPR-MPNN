@@ -1,7 +1,7 @@
 .ipynb_checkpoints
 .idea
 __pycache__
-.simple_configs
+simple_configs
 logs
 datasets
 wandb
