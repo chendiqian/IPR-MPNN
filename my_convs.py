@@ -1,31 +1,22 @@
 import inspect
-from typing import Optional, Union
 
 import torch
 import torch.nn.functional as F
-from ogb.graphproppred.mol_encoder import BondEncoder
 from torch.nn import Identity
 from torch_geometric.nn import MLP
 from torch_geometric.nn.resolver import normalization_resolver
 from torch_scatter import scatter_sum
 
 from nn_utils import residual
-
+from nn_modules import get_atom_encoder, get_bond_encoder
 
 class GINEConvMultiEdgeset(torch.nn.Module):
-    def __init__(self, emb_dim: int,
-                 mlp: Optional[Union[MLP, torch.nn.Sequential]] = None,
-                 bond_encoder: Optional[Union[MLP, torch.nn.Sequential]] = None):
-
+    def __init__(self, mlp, bond_encoder):
         super(GINEConvMultiEdgeset, self).__init__()
 
         self.mlp = mlp
         self.eps = torch.nn.Parameter(torch.Tensor([0.]))
-
-        if bond_encoder is None:
-            self.bond_encoder = BondEncoder(emb_dim=emb_dim)
-        else:
-            self.bond_encoder = bond_encoder
+        self.bond_encoder = bond_encoder
 
     def forward(self, x, edge_index, edge_attr, edge_weight):
         # (repeats * choices * nnodes), features = x.shape
@@ -51,21 +42,22 @@ class GINEConvMultiEdgeset(torch.nn.Module):
 
 class GINEMultiEdgeset(torch.nn.Module):
     def __init__(self,
-                 in_features,
+                 atom_encoder,
+                 edge_encoder,
+                 hidden,
                  num_layers,
                  num_mlp_layers,
-                 hidden,
                  out_feature,
                  norm,
                  dropout,
-                 use_residual,
-                 edge_encoder=None):
+                 use_residual):
         super(GINEMultiEdgeset, self).__init__()
 
+        self.atom_encoder = get_atom_encoder(atom_encoder, hidden)
         self.dropout = dropout
         self.use_residual = use_residual
 
-        dims = [in_features] + [hidden] * num_layers
+        dims = [hidden] * (num_layers + 1)
 
         self.convs = torch.nn.ModuleList()
         self.norms = torch.nn.ModuleList()
@@ -73,13 +65,12 @@ class GINEMultiEdgeset(torch.nn.Module):
         for dim_in, dim_out in zip(dims[:-1], dims[1:]):
             self.convs.append(
                 GINEConvMultiEdgeset(
-                    dim_in,
                     torch.nn.Sequential(
                         torch.nn.Linear(dim_in, dim_out),
                         torch.nn.GELU(),
                         torch.nn.Linear(dim_out, dim_out),
                     ),
-                    edge_encoder,
+                    get_bond_encoder(edge_encoder, dim_in),
                 )
             )
             self.norms.append(normalization_resolver(norm, dim_out) if norm is not None else Identity())
@@ -95,9 +86,16 @@ class GINEMultiEdgeset(torch.nn.Module):
                        num_layers=num_mlp_layers,
                        norm=norm)
 
-    def forward(self, x, batch, edge_index, edge_attr, node_mask=None):
-        repeats, choices, nnodes, features = x.shape
-        x = x.reshape(-1, features)
+    def forward(self, x, batch, edge_index, edge_attr, node_mask):
+        x = self.atom_encoder(x)
+        if node_mask is not None:
+            repeats, choices, nnodes, _ = node_mask.shape
+            x = x.repeat(repeats, choices, 1, 1)
+            x = x.reshape(-1, x.shape[-1])
+            num_graphs = batch.max() + 1
+            batch = batch.repeat(repeats * choices)
+            bias = torch.arange(repeats * choices, device=x.device).repeat_interleave(nnodes) * num_graphs
+            batch += bias
         # x: repeats, choices, nnodes, features
         # node_mask: repeats, choices, nnodes, 1
         edge_mask = node_mask[:, :, edge_index[0], :] * node_mask[:, :, edge_index[1], :] if node_mask is not None else None
