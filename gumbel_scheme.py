@@ -6,7 +6,7 @@ EPSILON = np.finfo(np.float32).tiny
 LARGE_NUMBER = 1.e10
 
 class GumbelSampler(torch.nn.Module):
-    def __init__(self, k, train_ensemble, val_ensemble, tau=0.1, hard=True, policy=None):
+    def __init__(self, k, train_ensemble, val_ensemble, tau=0.1, hard=True):
         super(GumbelSampler, self).__init__()
         self.k = k
         self.hard = hard
