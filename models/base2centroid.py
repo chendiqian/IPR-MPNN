@@ -7,8 +7,6 @@ from torch_geometric.nn import MLP
 from torch_geometric.nn.resolver import normalization_resolver
 from torch_scatter import scatter_sum
 
-from nn_utils import residual
-from nn_modules import get_atom_encoder, get_bond_encoder
 
 class GINEConvMultiEdgeset(torch.nn.Module):
     def __init__(self, mlp, bond_encoder):
@@ -40,22 +38,20 @@ class GINEConvMultiEdgeset(torch.nn.Module):
         return out
 
 
-class GINEMultiEdgeset(torch.nn.Module):
+class GNNMultiEdgeset(torch.nn.Module):
     def __init__(self,
-                 atom_encoder,
+                 conv,
                  edge_encoder,
                  hidden,
                  num_layers,
                  num_mlp_layers,
                  out_feature,
                  norm,
-                 dropout,
-                 use_residual):
-        super(GINEMultiEdgeset, self).__init__()
+                 dropout):
+        super(GNNMultiEdgeset, self).__init__()
 
-        self.atom_encoder = get_atom_encoder(atom_encoder, hidden)
+        assert conv == 'gine'
         self.dropout = dropout
-        self.use_residual = use_residual
 
         dims = [hidden] * (num_layers + 1)
 
@@ -70,7 +66,7 @@ class GINEMultiEdgeset(torch.nn.Module):
                         torch.nn.GELU(),
                         torch.nn.Linear(dim_out, dim_out),
                     ),
-                    get_bond_encoder(edge_encoder, dim_in),
+                    edge_encoder,
                 )
             )
             self.norms.append(normalization_resolver(norm, dim_out) if norm is not None else Identity())
@@ -86,19 +82,7 @@ class GINEMultiEdgeset(torch.nn.Module):
                        num_layers=num_mlp_layers,
                        norm=norm)
 
-    def forward(self, x, batch, edge_index, edge_attr, node_mask):
-        x = self.atom_encoder(x)
-        if node_mask is not None:
-            repeats, choices, nnodes, _ = node_mask.shape
-            x = x.repeat(repeats, choices, 1, 1)
-            x = x.reshape(-1, x.shape[-1])
-            num_graphs = batch.max() + 1
-            batch = batch.repeat(repeats * choices)
-            bias = torch.arange(repeats * choices, device=x.device).repeat_interleave(nnodes) * num_graphs
-            batch += bias
-        # x: repeats, choices, nnodes, features
-        # node_mask: repeats, choices, nnodes, 1
-        edge_mask = node_mask[:, :, edge_index[0], :] * node_mask[:, :, edge_index[1], :] if node_mask is not None else None
+    def forward(self, x, batch, edge_index, edge_attr, node_mask, edge_mask):
         for i, conv in enumerate(self.convs):
             x_new = conv(x, edge_index, edge_attr, edge_mask)
             if self.supports_norm_batch:
@@ -107,15 +91,17 @@ class GINEMultiEdgeset(torch.nn.Module):
                 x_new = self.norms[i](x_new)
             x_new = F.gelu(x_new)
             x_new = F.dropout(x_new, p=self.dropout, training=self.training)
-            if self.use_residual:
-                x = residual(x, x_new)
-            else:
-                x = x_new
+            x = x_new
 
         x = self.mlp(x)
-        if node_mask is not None:
-            x = x.reshape(repeats, choices, nnodes, -1)
-            x = (x * node_mask).sum(2) / node_mask.detach().sum(2)
+
+        # pooling
+        if self.training:
+            repeats, n_centroids, nnodes, _ = node_mask.shape
+            x = x.reshape(repeats, n_centroids, nnodes, -1)
+            batch = batch[:nnodes]  # it has been repeated
+            x = scatter_sum(x * node_mask, batch, dim=2) / scatter_sum(node_mask.detach(), batch, dim=2)
+            x = x.permute(0, 2, 1, 3).reshape(-1, x.shape[-1])
         else:
             raise NotImplementedError
         return x
