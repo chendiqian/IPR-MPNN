@@ -1,0 +1,44 @@
+program: sweep_run.py
+method: bayes
+entity: chendiqian
+project: debugg
+run_cap: 5
+
+metric:
+  goal: minimize
+  name: val_loss
+
+parameters:
+  wandb:
+    parameters:
+      use_wandb:
+        value: true
+      project:
+        value: debug
+      entity:
+        value: chendiqian
+      name:
+        value: run1
+
+  ckpt:
+    value: true
+
+  model:
+    value: gcn
+  dataset:
+    value: zinc
+
+  imle_configs:
+    parameters:
+      emb_hid_size:
+        values:
+          - 32
+          - 64
+          - 96
+        distribution: categorical
+      gnn_layer:
+        values:
+          - 2
+          - 4
+          - 8
+        distribution: categorical

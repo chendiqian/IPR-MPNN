@@ -18,7 +18,7 @@ class HybridModel(torch.nn.Module):
                  scorer_model: torch.nn.Module,
                  base2centroid_model: torch.nn.Module,
                  sampler: Union[IMLESampler, SIMPLESampler, GumbelSampler],
-                 # hier_mpnn: torch.nn.Module,
+                 hetero_gnn: torch.nn.Module,
                  ):
         super(HybridModel, self).__init__()
 
@@ -27,6 +27,7 @@ class HybridModel(torch.nn.Module):
         self.scorer_model = scorer_model
         self.base2centroid_model = base2centroid_model
         self.sampler = sampler
+        self.hetero_gnn = hetero_gnn
 
     def forward(self, data):
         x = self.atom_encoder(data)
@@ -44,14 +45,13 @@ class HybridModel(torch.nn.Module):
 
         # map clustered nodes into each centroid
         if self.training:
-            x = x.repeat(repeats, n_centroids, 1, 1)  # repeats, n_centroids, nnodes, features
-            x = x.reshape(-1, x.shape[-1])
-            num_graphs = data.num_graphs
             batch = data.batch.repeat(repeats * n_centroids) + \
-                    torch.arange(repeats * n_centroids, device=device).repeat_interleave(nnodes) * num_graphs
+                    torch.arange(repeats * n_centroids, device=device).repeat_interleave(nnodes) * data.num_graphs
 
             # repeats, n_centroids, n_graphs, features
-            centroid_x = self.base2centroid_model(x, batch, data.edge_index, data.edge_attr, node_mask, edge_mask)
+            centroid_x = self.base2centroid_model(
+                x.repeat(repeats, n_centroids, 1, 1).reshape(-1, x.shape[-1]),
+                batch, data.edge_index, data.edge_attr, node_mask, edge_mask)
         else:
             raise NotImplementedError
 
@@ -80,9 +80,10 @@ class HybridModel(torch.nn.Module):
                                 torch.arange(data.num_graphs, device=device).repeat_interleave(nedges_list), dim=2)
         intra_num_edges[:, -n_centroids:, :] = intra_num_edges[:, -n_centroids:, :] / 2
 
-        idx, intra_edge_weights = to_undirected(torch.from_numpy(idx).to(device), intra_num_edges.permute(1, 0, 2))
-        intra_edge_weights = intra_edge_weights.permute(1, 0, 2)
-
+        idx, intra_edge_weights = to_undirected(torch.from_numpy(idx).to(device),
+                                                intra_num_edges.permute(1, 0, 2),
+                                                reduce='mean')
+        intra_edge_weights = intra_edge_weights.permute(1, 0, 2) / intra_edge_weights.detach().max()
 
         new_data = HeteroData(
             base={'x': x.repeat(repeats, 1)},
@@ -90,7 +91,8 @@ class HybridModel(torch.nn.Module):
 
             base__to__base={'edge_index': data.edge_index.repeat(1, repeats) + \
                                           torch.arange(repeats, device=device).repeat_interleave(data.num_edges) * data.num_nodes,
-                            'edge_attr': data.edge_attr.repeat(repeats, 1),
+                            'edge_attr': data.edge_attr.repeat(repeats) if data.edge_attr.dim() == 1 else \
+                                data.edge_attr.repeat(repeats, 1),
                             'edge_weight': None},
             base__to__centroid={'edge_index': torch.vstack([src, dst]),
                                 'edge_attr': None,
@@ -104,3 +106,6 @@ class HybridModel(torch.nn.Module):
                                     'edge_attr': None,
                                     'edge_weight': intra_edge_weights.permute(0, 2, 1).reshape(-1)}
         )
+
+        base_embedding, centroid_embedding = self.hetero_gnn(new_data)
+        return base_embedding

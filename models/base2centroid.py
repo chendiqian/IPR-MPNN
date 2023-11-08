@@ -47,6 +47,7 @@ class GNNMultiEdgeset(torch.nn.Module):
                  num_mlp_layers,
                  out_feature,
                  norm,
+                 activation,
                  dropout):
         super(GNNMultiEdgeset, self).__init__()
 
@@ -80,6 +81,7 @@ class GNNMultiEdgeset(torch.nn.Module):
                        hidden_channels=hidden,
                        out_channels=out_feature,
                        num_layers=num_mlp_layers,
+                       act=activation,
                        norm=norm)
 
     def forward(self, x, batch, edge_index, edge_attr, node_mask, edge_mask):

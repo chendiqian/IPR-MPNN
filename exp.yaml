@@ -1,0 +1,14 @@
+wandb:
+    use_wandb: true
+    project: debugg
+    entity: chendiqian
+    name: run1
+
+ckpt: true
+
+imle_configs:
+    emb_hid_size: 32
+    gnn_layer: 4
+
+dataset: zinc
+model: gnn

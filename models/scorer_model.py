@@ -13,6 +13,7 @@ class ScorerGNN(torch.nn.Module):
                  num_centroids: int,
                  num_ensemble: int,
                  norm: str,
+                 activation: str,
                  # dropout: float
                  ):
         super(ScorerGNN, self).__init__()
@@ -28,6 +29,7 @@ class ScorerGNN(torch.nn.Module):
                        hidden_channels=hidden,
                        out_channels=num_centroids * num_ensemble,
                        num_layers=num_mlp_layers,
+                       act=activation,
                        norm=norm)
 
     def forward(self, x, *args, **kwargs):

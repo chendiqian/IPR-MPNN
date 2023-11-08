@@ -9,7 +9,7 @@ class ZINCBondEncoder(torch.nn.Module):
 
     def forward(self, edge_attr):
         if edge_attr is not None:
-            return self.embedding(edge_attr)
+            return self.embedding(edge_attr.squeeze())
         else:
             return None
 
@@ -21,7 +21,7 @@ class ZINCAtomEncoder(torch.nn.Module):
         torch.nn.init.xavier_uniform_(self.embedding.weight.data)
 
     def forward(self, data):
-        return self.embedding(data.x)
+        return self.embedding(data.x.squeeze())
 
 
 def get_atom_encoder(atom_encoder: str, hidden: int):
