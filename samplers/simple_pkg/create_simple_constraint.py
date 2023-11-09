@@ -2,7 +2,7 @@ import numpy as np
 import math
 from itertools import chain
 import pickle
-from simple.node import *
+from samplers.simple_pkg.node import Node, DECOMPOSITION, LITERAL
 
 
 def lookup_node(elements, nodes, literals):

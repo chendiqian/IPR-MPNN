@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 from samplers.deterministic_scheme import select_from_candidates
 
-from imle.noise import GumbelDistribution
-from imle.target import TargetDistribution
-from imle.wrapper import imle
+from samplers.imle_pkg.noise import GumbelDistribution
+from samplers.imle_pkg.target import TargetDistribution
+from samplers.imle_pkg.wrapper import imle
 
 
 LARGE_NUMBER = 1.e10

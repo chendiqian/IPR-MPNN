@@ -6,7 +6,7 @@ from typing import List
 import torch
 import torch._dynamo
 torch._dynamo.reset()
-from simple.create_simple_constraint import create_and_save
+from samplers.simple_pkg.create_simple_constraint import create_and_save
 
 DISABLE = False
 MODE = 'default'

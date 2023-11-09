@@ -3,8 +3,8 @@ import functools
 import torch
 from torch import Tensor
 
-from imle.noise import BaseNoiseDistribution
-from imle.target import BaseTargetDistribution, TargetDistribution
+from samplers.imle_pkg.noise import BaseNoiseDistribution
+from samplers.imle_pkg.target import BaseTargetDistribution, TargetDistribution
 
 from typing import Callable, Optional
 
