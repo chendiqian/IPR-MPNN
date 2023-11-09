@@ -1,3 +1,4 @@
+import pdb
 from typing import Union
 
 import torch
@@ -9,6 +10,7 @@ from samplers.gumbel_scheme import GumbelSampler
 from samplers.imle_scheme import IMLESampler
 from samplers.simple_scheme import SIMPLESampler
 from torch_geometric.data import HeteroData
+from models.nn_utils import get_graph_pooling
 
 
 class HybridModel(torch.nn.Module):
@@ -19,6 +21,12 @@ class HybridModel(torch.nn.Module):
                  base2centroid_model: torch.nn.Module,
                  sampler: Union[IMLESampler, SIMPLESampler, GumbelSampler],
                  hetero_gnn: torch.nn.Module,
+
+                 target: str,
+                 intra_pred_head: torch.nn.Module,
+                 inter_pred_head: torch.nn.Module,
+                 intra_graph_pool: str,
+                 inter_ensemble_pool: str,
                  ):
         super(HybridModel, self).__init__()
 
@@ -28,6 +36,15 @@ class HybridModel(torch.nn.Module):
         self.base2centroid_model = base2centroid_model
         self.sampler = sampler
         self.hetero_gnn = hetero_gnn
+
+        self.target = target
+        self.inter_ensemble_pool = inter_ensemble_pool
+        pool, graph_pool_idx = get_graph_pooling(intra_graph_pool)
+        self.intra_graph_pool = pool
+        self.graph_pool_idx = graph_pool_idx
+        self.inter_pred_head = inter_pred_head
+        self.intra_pred_head = intra_pred_head
+
 
     def forward(self, data):
         x = self.atom_encoder(data)
@@ -108,4 +125,18 @@ class HybridModel(torch.nn.Module):
         )
 
         base_embedding, centroid_embedding = self.hetero_gnn(new_data)
-        return base_embedding
+
+        if self.target == 'base':
+            node_embedding = base_embedding.reshape(repeats, -1, base_embedding.shape[-1])
+            if self.inter_ensemble_pool == 'mean':
+                node_embedding = torch.mean(node_embedding, dim=0)
+            elif self.inter_ensemble_pool == 'max':
+                node_embedding = torch.max(node_embedding, dim=0)
+            else:
+                raise NotImplementedError
+            node_embedding = self.inter_pred_head(node_embedding)
+            graph_embedding = self.intra_graph_pool(node_embedding, getattr(data, self.graph_pool_idx))
+            graph_embedding = self.intra_pred_head(graph_embedding)
+        else:
+            raise NotImplementedError
+        return graph_embedding

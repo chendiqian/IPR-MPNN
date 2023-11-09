@@ -1,14 +1,72 @@
 wandb:
-    use_wandb: true
+    use_wandb: false
     project: debugg
     entity: chendiqian
     name: run1
 
-ckpt: true
-
-imle_configs:
-    emb_hid_size: 32
-    gnn_layer: 4
+ckpt: false
 
 dataset: zinc
-model: gnn
+data_path: ./datasets
+batch_size: 128
+lr: 1.e-3
+weight_decay: 0.
+debug: true
+num_runs: 1
+max_epoch: 1000
+min_epoch: 300
+patience: 100
+
+# encoder
+encoder:
+    atom: zinc
+    bond: zinc
+    hidden: 128
+
+#scorer_model: none
+scorer_model:
+    conv: mlp
+    hidden: 128
+    num_conv_layers: 0
+    num_mlp_layers: 3
+    norm: batch_norm
+    activation: gelu
+    dropout: 0.
+    num_centroids: 5
+
+# extract the base nodes to super nodes
+base2centroid:
+    conv: gine
+    hidden: 128
+    num_conv_layers: 2
+    num_mlp_layers: 3
+    norm: graph_norm
+    activation: gelu
+    dropout: 0.
+
+# the hetero, hierarchical GNN
+hetero:
+    conv: gine
+    in_place: false  # if set true, update the heterogeneous nodes real time, otherwise update only once
+    in_feature: 128  # should be the same as the encoder.hidden
+    hidden: 128
+    num_conv_layers: 4
+    num_mlp_layers: 2
+    norm: batch_norm
+    activation: gelu
+    dropout: 0.
+    residual: true
+
+sampler:
+    name: simple
+    sample_k: 1  # by default 1, i.e., each node gets assigned to 1 centroid
+    num_ensemble: 3
+    train_samples: 1
+    val_samples: 1
+
+hybrid_model:
+    target: base
+    inter_pred_layer: 2
+    intra_pred_layer: 2
+    inter_ensemble_pool: mean
+    intra_graph_pool: mean

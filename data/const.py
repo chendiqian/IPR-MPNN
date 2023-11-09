@@ -154,3 +154,11 @@ CRITERION_DICT = {
     'hetero_texas': nn.CrossEntropyLoss(),
     'hetero_wisconsin': nn.CrossEntropyLoss(),
 }
+
+SCHEDULER_MODE = {
+    'acc': 'max',
+    'mae': 'min',
+    'mse': 'min',
+    'rocauc': 'max',
+    'rmse': 'min',
+}

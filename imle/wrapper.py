@@ -34,16 +34,6 @@ def imle(function: Callable[[Tensor], Tensor] = None,
 
     Example::
 
-        >>> from imle.wrapper import imle
-        >>> from imle.target import TargetDistribution
-        >>> from imle.noise import SumOfGammaNoiseDistribution
-        >>> target_distribution = TargetDistribution(alpha=0.0, beta=10.0)
-        >>> noise_distribution = SumOfGammaNoiseDistribution(k=21, nb_iterations=100)
-        >>> @imle(target_distribution=target_distribution, noise_distribution=noise_distribution, nb_samples=100,
-        >>>       input_noise_temperature=input_noise_temperature, target_noise_temperature=5.0)
-        >>> def imle_solver(weights_batch: Tensor) -> Tensor:
-        >>>     return torch_solver(weights_batch)
-
     Args:
         function (Callable[[Tensor], Tensor]): black-box combinatorial solver
         target_distribution (Optional[BaseTargetDistribution]): factory for target distributions

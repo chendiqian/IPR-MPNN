@@ -25,9 +25,9 @@ PRETRANSFORM_PRIORITY = {
 
 def get_additional_path(args: Union[Namespace, ConfigDict]):
     extra_path = ''
-    if hasattr(args.imle_configs, 'rwse') or hasattr(args, 'rwse'):
+    if hasattr(args.encoder, 'rwse'):
         extra_path += 'rwse_'
-    if hasattr(args.imle_configs, 'lap') or hasattr(args, 'lap'):
+    if hasattr(args.encoder, 'lap'):
         extra_path += 'lap_'
     return extra_path if len(extra_path) else None
 
@@ -45,15 +45,10 @@ def get_pretransform(args: Union[Namespace, ConfigDict], extra_pretransforms: Op
     if extra_pretransforms is not None:
         pretransform = pretransform + extra_pretransforms
 
-    # if hasattr(args.imle_configs, 'rwse'):
-    #     pretransform.append(AddRandomWalkPE(args.imle_configs.rwse.kernel, 'pestat_RWSE'))
-    # elif hasattr(args, 'rwse'):
-    #     pretransform.append(AddRandomWalkPE(args.rwse.kernel, 'pestat_RWSE'))
-    #
-    # if hasattr(args.imle_configs, 'lap'):
-    #     pretransform.append(AddLaplacianEigenvectorPE(args.imle_configs.lap.max_freqs, 'EigVecs', is_undirected=True))
-    # elif hasattr(args, 'lap'):
-    #     pretransform.append(AddLaplacianEigenvectorPE(args.lap.max_freqs, 'EigVecs', is_undirected=True))
+    if hasattr(args.encoder, 'rwse'):
+        pretransform.append(AddRandomWalkPE(args.encoder.rwse.kernel, 'pestat_RWSE'))
+    if hasattr(args.encoder, 'lap'):
+        pretransform.append(AddLaplacianEigenvectorPE(args.encoder.lap.max_freqs, 'EigVecs', is_undirected=True))
 
     if pretransform:
         pretransform = sorted(pretransform, key=lambda p: PRETRANSFORM_PRIORITY[type(p)], reverse=True)

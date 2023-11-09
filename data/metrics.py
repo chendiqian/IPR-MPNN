@@ -110,34 +110,38 @@ def eval_F1macro(y_true: np.ndarray, y_pred: np.ndarray):
     return sum(f1s) / len(f1s)
 
 
-def get_eval(task_type: str, y_true: torch.Tensor, y_pred: torch.Tensor):
-    if task_type == 'rocauc':
-        func = eval_rocauc
-    elif task_type == 'rmse':
-        func = eval_rmse
-    elif task_type == 'acc':
-        if y_pred.shape[1] == 1:
-            # binary
-            y_pred = (y_pred > 0.).to(torch.int)
-        else:
-            if y_true.dim() == 1 or y_true.shape[1] == 1:
-                # multi class
-                y_pred = torch.argmax(y_pred, dim=1)
-            else:
-                # multi label
-                raise NotImplementedError
-        func = eval_acc
-    elif task_type == 'f1_macro':
-        assert y_pred.shape[1] > 1, "assumed not binary"
-        y_pred = torch.argmax(y_pred, dim=1)
-        func = eval_F1macro
-    elif task_type == 'mae':
-        func = eval_mae
-    elif task_type == 'ap':
-        func = eval_ap
-    else:
-        raise NotImplementedError
+class Evaluator:
+    def __init__(self, task_type):
+        self.task_type = task_type
 
-    y_true, y_pred = pre_proc(y_true, y_pred)
-    metric = func(y_true, y_pred)
-    return metric
+    def __call__(self, y_true: torch.Tensor, y_pred: torch.Tensor):
+        if self.task_type == 'rocauc':
+            func = eval_rocauc
+        elif self.task_type == 'rmse':
+            func = eval_rmse
+        elif self.task_type == 'acc':
+            if y_pred.shape[1] == 1:
+                # binary
+                y_pred = (y_pred > 0.).to(torch.int)
+            else:
+                if y_true.dim() == 1 or y_true.shape[1] == 1:
+                    # multi class
+                    y_pred = torch.argmax(y_pred, dim=1)
+                else:
+                    # multi label
+                    raise NotImplementedError
+            func = eval_acc
+        elif self.task_type == 'f1_macro':
+            assert y_pred.shape[1] > 1, "assumed not binary"
+            y_pred = torch.argmax(y_pred, dim=1)
+            func = eval_F1macro
+        elif self.task_type == 'mae':
+            func = eval_mae
+        elif self.task_type == 'ap':
+            func = eval_ap
+        else:
+            raise NotImplementedError
+
+        y_true, y_pred = pre_proc(y_true, y_pred)
+        metric = func(y_true, y_pred)
+        return metric

@@ -1,6 +1,7 @@
 import torch
 import numpy as np
-from deterministic_scheme import select_from_candidates
+from samplers.deterministic_scheme import select_from_candidates
+
 
 EPSILON = np.finfo(np.float32).tiny
 LARGE_NUMBER = 1.e10

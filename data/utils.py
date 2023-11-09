@@ -1,13 +1,12 @@
-from collections import namedtuple
 import hashlib
 import json
 import os
 from ast import literal_eval
-from typing import Any, Dict, List, Tuple, Union
+from collections import namedtuple
+from typing import Any, Dict, List, Tuple, Union, Optional
 
-from multimethod import multimethod
 import yaml
-
+from multimethod import multimethod
 
 AttributedDataLoader = namedtuple(
     'AttributedDataLoader', [
@@ -117,3 +116,27 @@ def args_canonize(args: Config):
             elif v.lower() == 'none':
                 args[k] = None
     return args
+
+
+class IsBetter:
+    """
+    A comparator for different metrics, to unify >= and <=
+
+    """
+    def __init__(self, task_type):
+        self.task_type = task_type
+
+    def __call__(self, val1: float, val2: Optional[float]) -> Tuple[bool, float]:
+        if val2 is None:
+            return True, val1
+
+        if self.task_type in ['rmse', 'mae']:
+            better = val1 < val2
+            the_better = val1 if better else val2
+            return better, the_better
+        elif self.task_type in ['rocauc', 'acc', 'f1_macro', 'ap']:
+            better = val1 > val2
+            the_better = val1 if better else val2
+            return better, the_better
+        else:
+            raise ValueError

@@ -8,13 +8,13 @@ class ScorerGNN(torch.nn.Module):
                  atom_encoder: torch.nn.Module,
                  bond_encoder: torch.nn.Module,
                  hidden: int,
-                 # num_layers: int,
+                 num_conv_layers: int,
                  num_mlp_layers: int,
                  num_centroids: int,
                  num_ensemble: int,
                  norm: str,
                  activation: str,
-                 # dropout: float
+                 dropout: float
                  ):
         super(ScorerGNN, self).__init__()
 
@@ -32,7 +32,7 @@ class ScorerGNN(torch.nn.Module):
                        act=activation,
                        norm=norm)
 
-    def forward(self, x, *args, **kwargs):
-        x = self.mlp(x)
+    def forward(self, x, batch = None, edge_index = None, edge_attr = None):
+        x = self.mlp(x, batch)
         x = x.reshape(-1, self.num_centroids, self.num_ensemble)
         return x

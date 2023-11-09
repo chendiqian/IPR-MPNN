@@ -3,7 +3,7 @@ import math
 import torch
 import torch.nn as nn
 
-from deterministic_scheme import select_from_candidates
+from samplers.deterministic_scheme import select_from_candidates
 from simple.simple import Layer
 
 LARGE_NUMBER = 1.e10

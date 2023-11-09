@@ -43,7 +43,7 @@ class GNNMultiEdgeset(torch.nn.Module):
                  conv,
                  edge_encoder,
                  hidden,
-                 num_layers,
+                 num_conv_layers,
                  num_mlp_layers,
                  out_feature,
                  norm,
@@ -54,7 +54,7 @@ class GNNMultiEdgeset(torch.nn.Module):
         assert conv == 'gine'
         self.dropout = dropout
 
-        dims = [hidden] * (num_layers + 1)
+        dims = [hidden] * (num_conv_layers + 1)
 
         self.convs = torch.nn.ModuleList()
         self.norms = torch.nn.ModuleList()
