@@ -19,20 +19,23 @@ class GINEConvMultiEdgeset(torch.nn.Module):
     def forward(self, x, edge_index, edge_attr, edge_weight):
         # (repeats * choices * nnodes), features = x.shape
         # repeats, choices, nedges, 1 = edge_weight.shape
-        if edge_attr is not None:
-            edge_embedding = self.bond_encoder(edge_attr)
-            edge_embedding = edge_embedding.repeat(1, 1, 1, 1)  # 1, 1, nedges, features
-        else:
-            edge_embedding = 0.
 
-        if edge_weight is not None:
+        # 1, 1, nedges, features
+        edge_embedding = self.bond_encoder(edge_attr) if edge_attr is not None else torch.zeros(1, 1, device=x.device, dtype=x.dtype)
+
+        if self.training:
+            edge_embedding = edge_embedding.repeat(1, 1, 1, 1)
             repeats, choices, _, _ = edge_weight.shape
-            message = F.gelu(x.reshape(repeats, choices, -1, x.shape[-1])[:, :, edge_index[0], :] + edge_embedding)
+            unflatten_x = x.reshape(repeats, choices, -1, x.shape[-1])
+            message = F.gelu(unflatten_x[:, :, edge_index[0], :] + edge_embedding)
             message = message * edge_weight
-            out = scatter_sum(message, edge_index[1], dim=2)
+            out = scatter_sum(message, edge_index[1], dim=2, dim_size=unflatten_x.shape[2])
             out = out.reshape(x.shape)
         else:
-            raise NotImplementedError
+            # cannot reshape x like that, as the number of edges per centroid / ensemble graph may vary
+            message = F.gelu(x[edge_index[0], :] + edge_embedding)
+            message = message * edge_weight
+            out = scatter_sum(message, edge_index[1], dim=0, dim_size=x.shape[0])
 
         out = self.mlp((1 + self.eps) * x + out)
         return out
@@ -98,12 +101,21 @@ class GNNMultiEdgeset(torch.nn.Module):
         x = self.mlp(x)
 
         # pooling
+        repeats, n_centroids, nnodes, _ = node_mask.shape
+        single_batch = batch[:nnodes]  # it has been repeated
         if self.training:
-            repeats, n_centroids, nnodes, _ = node_mask.shape
             x = x.reshape(repeats, n_centroids, nnodes, -1)
-            batch = batch[:nnodes]  # it has been repeated
-            x = scatter_sum(x * node_mask, batch, dim=2) / scatter_sum(node_mask.detach(), batch, dim=2)
+            x = scatter_sum(x * node_mask, single_batch, dim=2) / \
+                (scatter_sum(node_mask.detach(), single_batch, dim=2) + 1.e-7)
             x = x.permute(0, 2, 1, 3).reshape(-1, x.shape[-1])
         else:
-            raise NotImplementedError
+            n_graphs = single_batch.max() + 1
+            nnz_x_idx = node_mask.reshape(-1).nonzero().squeeze()
+            nnz_node_mask = node_mask.reshape(-1)[nnz_x_idx][..., None]
+            x = x[nnz_x_idx, :]
+            batch = batch[nnz_x_idx]
+            x = scatter_sum(x * nnz_node_mask, batch, dim=0, dim_size=n_centroids * n_graphs * repeats) / \
+                (scatter_sum(nnz_node_mask.detach(), batch, dim=0, dim_size=n_centroids * n_graphs * repeats) + 1.e-7)
+            x = x.reshape(repeats, n_centroids, n_graphs, x.shape[-1])
+            x = x.permute(0, 2, 1, 3).reshape(-1, x.shape[-1])
         return x

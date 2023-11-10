@@ -121,6 +121,10 @@ def get_zinc(args: Union[Namespace, ConfigDict]):
                     transform=transform,
                     pre_transform=pre_transform)
 
+    train_set.data.y = train_set.data.y[:, None]
+    val_set.data.y = val_set.data.y[:, None]
+    test_set.data.y = test_set.data.y[:, None]
+
     if args.debug:
         train_set = train_set[:16]
         val_set = val_set[:16]

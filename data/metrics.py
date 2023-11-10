@@ -140,7 +140,7 @@ class Evaluator:
         elif self.task_type == 'ap':
             func = eval_ap
         else:
-            raise NotImplementedError
+            raise ValueError(f"Unexpected task type {self.task_type}")
 
         y_true, y_pred = pre_proc(y_true, y_pred)
         metric = func(y_true, y_pred)

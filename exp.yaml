@@ -32,7 +32,7 @@ scorer_model:
     norm: batch_norm
     activation: gelu
     dropout: 0.
-    num_centroids: 5
+    num_centroids: 2
 
 # extract the base nodes to super nodes
 base2centroid:
@@ -47,7 +47,6 @@ base2centroid:
 # the hetero, hierarchical GNN
 hetero:
     conv: gine
-    in_place: false  # if set true, update the heterogeneous nodes real time, otherwise update only once
     in_feature: 128  # should be the same as the encoder.hidden
     hidden: 128
     num_conv_layers: 4
@@ -60,7 +59,7 @@ hetero:
 sampler:
     name: simple
     sample_k: 1  # by default 1, i.e., each node gets assigned to 1 centroid
-    num_ensemble: 3
+    num_ensemble: 1
     train_samples: 1
     val_samples: 1
 

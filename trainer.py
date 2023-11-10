@@ -1,4 +1,3 @@
-import pdb
 from typing import Union
 import torch
 
@@ -33,8 +32,6 @@ class Trainer:
 
             optimizer.zero_grad()
             outputs = model(data)
-
-            pdb.set_trace()
 
             loss = self.criterion(outputs, y)
             loss.backward()
