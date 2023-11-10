@@ -24,9 +24,20 @@ class ZINCAtomEncoder(torch.nn.Module):
         return self.embedding(data.x.squeeze())
 
 
-def get_atom_encoder(atom_encoder: str, hidden: int):
+class LinearEncocer(torch.nn.Module):
+    def __init__(self, in_feature, hidden):
+        super(LinearEncocer, self).__init__()
+        self.embedding = torch.nn.Linear(in_feature, hidden)
+
+    def forward(self, data):
+        return self.embedding(data.x)
+
+
+def get_atom_encoder(atom_encoder: str, hidden: int, in_feature: int = None):
     if atom_encoder == 'zinc':
         return ZINCAtomEncoder(hidden)
+    elif atom_encoder == 'linear':
+        return LinearEncocer(in_feature, hidden)
     else:
         raise NotImplementedError
 
@@ -34,5 +45,7 @@ def get_atom_encoder(atom_encoder: str, hidden: int):
 def get_bond_encoder(bond_encoder: str, hidden: int):
     if bond_encoder == 'zinc':
         return ZINCBondEncoder(hidden)
+    elif bond_encoder is None:
+        return None
     else:
         raise NotImplementedError

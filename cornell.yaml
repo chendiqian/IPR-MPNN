@@ -1,0 +1,69 @@
+wandb:
+    use_wandb: false
+    project: debugg
+    entity: chendiqian
+    name: run1
+
+ckpt: false
+
+dataset: hetero_cornell
+data_path: ./datasets
+batch_size: 1
+lr: 1.e-3
+weight_decay: 0.
+debug: false
+num_runs: 3
+max_epoch: 1000
+min_epoch: 100
+patience: 100
+
+# encoder
+encoder:
+    atom: linear
+    bond: none
+    hidden: 192
+
+#scorer_model: none
+scorer_model:
+    conv: mlp
+    hidden: 128
+    num_conv_layers: 0
+    num_mlp_layers: 3
+    norm: batch_norm
+    activation: gelu
+    dropout: 0.
+    num_centroids: 5
+
+# extract the base nodes to super nodes
+base2centroid:
+    conv: gine
+    num_conv_layers: 2
+    num_mlp_layers: 3
+    norm: graph_norm
+    activation: gelu
+    dropout: 0.
+
+# the hetero, hierarchical GNN
+hetero:
+    conv: gine
+    hidden: 192
+    num_conv_layers: 3
+    num_mlp_layers: 2
+    norm: batch_norm
+    activation: gelu
+    dropout: 0.
+    residual: true
+
+sampler:
+    name: simple
+    sample_k: 1  # by default 1, i.e., each node gets assigned to 1 centroid
+    num_ensemble: 1
+    train_samples: 1
+    val_samples: 1
+
+hybrid_model:
+    target: base
+    inter_pred_layer: 2
+    intra_pred_layer: 2
+    inter_ensemble_pool: mean
+    intra_graph_pool: root

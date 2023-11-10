@@ -134,8 +134,8 @@ class HybridModel(torch.nn.Module):
 
             base__to__base={'edge_index': data.edge_index.repeat(1, repeats) + \
                                           torch.arange(repeats, device=device).repeat_interleave(data.num_edges) * data.num_nodes,
-                            'edge_attr': data.edge_attr.repeat(repeats) if data.edge_attr.dim() == 1 else \
-                                data.edge_attr.repeat(repeats, 1),
+                            'edge_attr': (data.edge_attr.repeat(repeats) if data.edge_attr.dim() == 1 else
+                                          data.edge_attr.repeat(repeats, 1)) if data.edge_attr is not None else None,
                             'edge_weight': None},
             base__to__centroid={'edge_index': torch.vstack([src, dst]),
                                 'edge_attr': None,
@@ -150,7 +150,7 @@ class HybridModel(torch.nn.Module):
                                     'edge_weight': intra_edge_weights.permute(0, 2, 1).reshape(-1)}
         )
 
-        base_embedding, centroid_embedding = self.hetero_gnn(new_data)
+        base_embedding, centroid_embedding = self.hetero_gnn(new_data, hasattr(data, 'edge_attr') and data.edge_attr is not None)
 
         if self.target == 'base':
             node_embedding = base_embedding.reshape(repeats, -1, base_embedding.shape[-1])

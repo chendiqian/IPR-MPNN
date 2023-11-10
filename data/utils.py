@@ -3,6 +3,7 @@ import json
 import os
 from ast import literal_eval
 from collections import namedtuple
+from ml_collections import ConfigDict
 from typing import Any, Dict, List, Tuple, Union, Optional
 
 import yaml
@@ -108,6 +109,8 @@ class Config(dict):
 
 def args_canonize(args: Config):
     for k, v in args.items():
+        if isinstance(v, Union[Config, ConfigDict]):
+            args[k] = args_canonize(v)
         if isinstance(v, str):
             if v.lower() == 'true':
                 args[k] = True

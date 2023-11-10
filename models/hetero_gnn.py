@@ -30,7 +30,6 @@ class HeteroGNN(torch.nn.Module):
     def __init__(self,
                  conv,
                  edge_encoder,
-                 in_feature,
                  hid_dim,
                  num_conv_layers,
                  # num_pred_layers,
@@ -46,25 +45,25 @@ class HeteroGNN(torch.nn.Module):
         self.num_layers = num_conv_layers
         self.use_res = use_res
 
-        get_conv_first_layer = get_conv_layer(conv, in_feature, hid_dim, edge_encoder, num_mlp_layers, norm, activation)
         get_conv = get_conv_layer(conv, hid_dim, hid_dim, edge_encoder, num_mlp_layers, norm, activation)
         self.gnn_convs = torch.nn.ModuleList()
         for layer in range(num_conv_layers):
             self.gnn_convs.append(
                 HeteroConv({
-                    ('base', 'to', 'base'): (get_conv_first_layer() if layer == 0 else get_conv(), 0),
-                    ('base', 'to', 'centroid'): (get_conv_first_layer() if layer == 0 else get_conv(), 1),
-                    ('centroid', 'to', 'centroid'): (get_conv_first_layer() if layer == 0 else get_conv(), 2),
-                    ('centroid', 'to', 'base'): (get_conv_first_layer() if layer == 0 else get_conv(), 3),
+                    ('base', 'to', 'base'): (get_conv(), 0),
+                    ('base', 'to', 'centroid'): (get_conv(), 1),
+                    ('centroid', 'to', 'centroid'): (get_conv(), 2),
+                    ('centroid', 'to', 'base'): (get_conv(), 3),
                 },
                     aggr='mean'))
 
         # self.pred_base = MLP([hid_dim] * num_pred_layers + [num_classes])
         # self.pred_cent = MLP([hid_dim] * num_pred_layers + [num_classes])
 
-    def forward(self, data):
+    def forward(self, data, has_edge_attr):
         x_dict = data.x_dict
-        edge_index_dict, edge_attr_dict, edge_weight_dict = data.edge_index_dict, data.edge_attr_dict, data.edge_weight_dict
+        edge_index_dict, edge_weight_dict = data.edge_index_dict, data.edge_weight_dict
+        edge_attr_dict = data.edge_attr_dict if has_edge_attr else {}
 
         for i in range(self.num_layers):
             h1 = x_dict

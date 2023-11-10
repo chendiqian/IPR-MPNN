@@ -10,7 +10,9 @@ from torch_geometric.nn import MLP
 
 def get_model(args, device):
     # get atom encoder and bond encoder
-    atom_encoder = get_atom_encoder(args.encoder.atom, args.encoder.hidden)
+    atom_encoder = get_atom_encoder(args.encoder.atom,
+                                    args.encoder.hidden,
+                                    DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['node'])
     bond_encoder = get_bond_encoder(args.encoder.bond, args.encoder.hidden)
 
     # scorer model
@@ -19,6 +21,7 @@ def get_model(args, device):
             conv=args.scorer_model.conv,
             atom_encoder=atom_encoder,
             bond_encoder=bond_encoder,
+            in_feature=args.encoder.hidden,
             hidden=args.scorer_model.hidden,
             num_conv_layers=args.scorer_model.num_conv_layers,
             num_mlp_layers=args.scorer_model.num_mlp_layers,
@@ -36,7 +39,7 @@ def get_model(args, device):
         base2centroid_model = GNNMultiEdgeset(
             conv=args.base2centroid.conv,
             edge_encoder=bond_encoder,
-            hidden=args.base2centroid.hidden,
+            hidden=args.encoder.hidden,
             num_conv_layers=args.base2centroid.num_conv_layers,
             num_mlp_layers=args.base2centroid.num_mlp_layers,
             out_feature=args.encoder.hidden,
@@ -52,7 +55,6 @@ def get_model(args, device):
         hetero_mpnn = HeteroGNN(
             conv=args.hetero.conv,
             edge_encoder=bond_encoder,
-            in_feature=args.hetero.in_feature,
             hid_dim=args.hetero.hidden,
             num_conv_layers=args.hetero.num_conv_layers,
             num_mlp_layers=args.hetero.num_mlp_layers,

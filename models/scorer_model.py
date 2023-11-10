@@ -7,6 +7,7 @@ class ScorerGNN(torch.nn.Module):
                  conv: str,
                  atom_encoder: torch.nn.Module,
                  bond_encoder: torch.nn.Module,
+                 in_feature: int,
                  hidden: int,
                  num_conv_layers: int,
                  num_mlp_layers: int,
@@ -25,7 +26,7 @@ class ScorerGNN(torch.nn.Module):
 
         assert conv == 'mlp'
 
-        self.mlp = MLP(in_channels=hidden,
+        self.mlp = MLP(in_channels=in_feature,
                        hidden_channels=hidden,
                        out_channels=num_centroids * num_ensemble,
                        num_layers=num_mlp_layers,
