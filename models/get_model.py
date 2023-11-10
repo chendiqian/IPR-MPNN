@@ -51,7 +51,6 @@ def get_model(args, device):
     if hasattr(args, 'hetero') and args.hetero is not None:
         hetero_mpnn = HeteroGNN(
             conv=args.hetero.conv,
-            in_place=args.hetero.in_place,
             edge_encoder=bond_encoder,
             in_feature=args.hetero.in_feature,
             hid_dim=args.hetero.hidden,
