@@ -52,7 +52,6 @@ class HeteroConv(torch.nn.Module):
     def __init__(
         self,
         convs: Dict[EdgeType, Tuple[MessagePassing, int]],
-        in_place: bool = False,
         aggr: Optional[str] = "sum",
     ):
         super().__init__()
@@ -82,7 +81,6 @@ class HeteroConv(torch.nn.Module):
             self.ranked_convs.append(module_dict)
 
         self.aggr = aggr
-        self.in_place = in_place
 
     def reset_parameters(self):
         r"""Resets all learnable parameters of the module."""
@@ -111,14 +109,10 @@ class HeteroConv(torch.nn.Module):
                            edge_index,
                            edge_attr_dict.get(edge_type, None),
                            edge_weight_dict.get(edge_type, None))
-                if not self.in_place:
-                    out_dict[dst].append(out)
-                else:
-                    x_dict[dst] = out
+                out_dict[dst].append(out)
 
-            if not self.in_place:
-                for key, value in out_dict.items():
-                    x_dict[key] = group(value, self.aggr)
+            for key, value in out_dict.items():
+                x_dict[key] = group(value, self.aggr)
 
         return x_dict
 

@@ -29,7 +29,6 @@ def get_conv_layer(conv: str,
 class HeteroGNN(torch.nn.Module):
     def __init__(self,
                  conv,
-                 in_place,
                  edge_encoder,
                  in_feature,
                  hid_dim,
@@ -58,7 +57,6 @@ class HeteroGNN(torch.nn.Module):
                     ('centroid', 'to', 'centroid'): (get_conv_first_layer() if layer == 0 else get_conv(), 2),
                     ('centroid', 'to', 'base'): (get_conv_first_layer() if layer == 0 else get_conv(), 3),
                 },
-                    in_place=in_place,
                     aggr='mean'))
 
         # self.pred_base = MLP([hid_dim] * num_pred_layers + [num_classes])
