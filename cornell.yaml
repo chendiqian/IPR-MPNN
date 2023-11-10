@@ -21,7 +21,6 @@ patience: 100
 encoder:
     atom: linear
     bond: none
-    hidden: 192
 
 #scorer_model: none
 scorer_model:

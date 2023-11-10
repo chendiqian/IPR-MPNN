@@ -11,9 +11,9 @@ from torch_geometric.nn import MLP
 def get_model(args, device):
     # get atom encoder and bond encoder
     atom_encoder = get_atom_encoder(args.encoder.atom,
-                                    args.encoder.hidden,
+                                    args.hetero.hidden,
                                     DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['node'])
-    bond_encoder = get_bond_encoder(args.encoder.bond, args.encoder.hidden)
+    bond_encoder = get_bond_encoder(args.encoder.bond, args.hetero.hidden)
 
     # scorer model
     if hasattr(args, 'scorer_model') and args.scorer_model is not None:
@@ -21,7 +21,7 @@ def get_model(args, device):
             conv=args.scorer_model.conv,
             atom_encoder=atom_encoder,
             bond_encoder=bond_encoder,
-            in_feature=args.encoder.hidden,
+            in_feature=args.hetero.hidden,
             hidden=args.scorer_model.hidden,
             num_conv_layers=args.scorer_model.num_conv_layers,
             num_mlp_layers=args.scorer_model.num_mlp_layers,
@@ -39,10 +39,10 @@ def get_model(args, device):
         base2centroid_model = GNNMultiEdgeset(
             conv=args.base2centroid.conv,
             edge_encoder=bond_encoder,
-            hidden=args.encoder.hidden,
+            hidden=args.hetero.hidden,
             num_conv_layers=args.base2centroid.num_conv_layers,
             num_mlp_layers=args.base2centroid.num_mlp_layers,
-            out_feature=args.encoder.hidden,
+            out_feature=args.hetero.hidden,
             norm=args.base2centroid.norm,
             activation=args.base2centroid.activation,
             dropout=args.base2centroid.dropout,

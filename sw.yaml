@@ -1,44 +1,130 @@
 program: sweep_run.py
 method: bayes
 entity: chendiqian
-project: debugg
-run_cap: 5
+project: cornell
+run_cap: 30
 
 metric:
-  goal: minimize
-  name: val_loss
+  goal: maximize
+  name: test_metric
 
 parameters:
-  wandb:
-    parameters:
-      use_wandb:
-        value: true
-      project:
-        value: debug
-      entity:
-        value: chendiqian
-      name:
-        value: run1
-
   ckpt:
-    value: true
+    value: false
 
-  model:
-    value: gcn
   dataset:
-    value: zinc
+    value: hetero_cornell
+  data_path:
+    value: ./datasets
+  batch_size:
+    value: 1
+  lr:
+    value: 1.e-3
+  weight_decay:
+    value: 0.
+  debug:
+    value: false
+  num_runs:
+    value: 3
+  max_epoch:
+    value: 1000
+  min_epoch:
+    value: 100
+  patience:
+    value: 100
 
-  imle_configs:
+  encoder:
     parameters:
-      emb_hid_size:
+      atom:
+        value: linear
+      bond:
+        value: none
+
+  scorer_model:
+    parameters:
+      conv:
+        value: mlp
+      hidden:
         values:
-          - 32
           - 64
-          - 96
+          - 128
+          - 192
         distribution: categorical
-      gnn_layer:
+      num_conv_layers:
+        value: 0
+      num_mlp_layers:
         values:
           - 2
+          - 3
           - 4
-          - 8
+        distribution: categorical
+      norm:
+        value: batch_norm
+      activation:
+        value: gelu
+      dropout:
+        values:
+          - 0.
+          - 0.1
+          - 0.3
+          - 0.5
+        distribution: categorical
+      num_centroids:
+        value: 5
+
+  base2centroid:
+    parameters:
+      conv:
+        value: gine
+      num_conv_layers:
+        values:
+          - 1
+          - 2
+          - 3
+        distribution: categorical
+      num_mlp_layers:
+        values:
+          - 1
+          - 2
+          - 3
+        distribution: categorical
+      norm:
+        value: graph_norm
+      activation:
+        value: gelu
+      dropout:
+        value: 0.
+
+  hetero:
+    parameters:
+      conv:
+        value: gine
+      hidden:
+        values:
+          - 128
+          - 192
+          - 256
+        distribution: categorical
+      num_conv_layers:
+        values:
+          - 1
+          - 2
+          - 3
+        distribution: categorical
+      num_mlp_layers:
+        values:
+          - 1
+          - 2
+          - 3
+        distribution: categorical
+      norm:
+        value: batch_norm
+      activation:
+        value: gelu
+      dropout:
+        value: 0.
+      residual:
+        values:
+          - true
+          - false
         distribution: categorical
