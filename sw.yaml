@@ -107,9 +107,10 @@ parameters:
         distribution: categorical
       num_conv_layers:
         values:
-          - 1
           - 2
           - 3
+          - 4
+          - 5
         distribution: categorical
       num_mlp_layers:
         values:
@@ -128,3 +129,40 @@ parameters:
           - true
           - false
         distribution: categorical
+
+  sampler:
+    parameters:
+      name:
+        value: simple
+      sample_k:
+        value: 1  # by default 1, i.e., each node gets assigned to 1 centroid
+      num_ensemble:
+        value: 1
+      train_samples:
+        value: 1
+      val_samples:
+        value: 1
+
+  hybrid_model:
+    parameters:
+      target:
+        value: base
+      inter_pred_layer:
+        values:
+          - 1
+          - 2
+          - 3
+        distribution: categorical
+      intra_pred_layer:
+        values:
+          - 1
+          - 2
+          - 3
+        distribution: categorical
+      inter_ensemble_pool:
+        values:
+          - mean
+          - max
+        distribution: categorical
+      intra_graph_pool:
+        value: root
