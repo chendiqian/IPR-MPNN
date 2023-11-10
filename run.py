@@ -46,7 +46,7 @@ def main(args, wandb):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     trainer = Trainer(criterion=CRITERION_DICT[args.dataset.lower()],
-                      evaluator=Evaluator(CRITERION_DICT[args.dataset.lower()]),
+                      evaluator=Evaluator(TASK_TYPE_DICT[args.dataset.lower()]),
                       device=device)
     comparison = IsBetter(TASK_TYPE_DICT[args.dataset.lower()])
 
