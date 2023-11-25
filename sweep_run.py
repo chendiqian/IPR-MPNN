@@ -12,5 +12,6 @@ if __name__ == '__main__':
         config=hyperparameter_defaults,
         mode="online",
     )
-    args = ConfigDict(args_canonize(wandb.config))
+
+    args = ConfigDict(args_canonize(wandb.config._as_dict()))
     main(args, wandb)
