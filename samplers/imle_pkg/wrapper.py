@@ -70,7 +70,7 @@ def imle(function: Callable[[Tensor], Tensor] = None,
                 perturbed_input_shape = [batch_size, nb_samples] + list(instance_shape)
 
                 if noise_distribution is None:
-                    noise = torch.zeros(size=perturbed_input_shape)
+                    noise = torch.zeros(size=perturbed_input_shape, device=input.device)
                 else:
                     noise = noise_distribution.sample(shape=torch.Size(perturbed_input_shape))
 
