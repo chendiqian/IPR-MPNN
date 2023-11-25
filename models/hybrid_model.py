@@ -157,7 +157,7 @@ class HybridModel(torch.nn.Module):
             if self.inter_ensemble_pool == 'mean':
                 node_embedding = torch.mean(node_embedding, dim=0)
             elif self.inter_ensemble_pool == 'max':
-                node_embedding = torch.max(node_embedding, dim=0)
+                node_embedding = torch.max(node_embedding, dim=0).values
             else:
                 raise NotImplementedError
             node_embedding = self.inter_pred_head(node_embedding)
