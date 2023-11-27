@@ -1,5 +1,5 @@
 wandb:
-    use_wandb: true
+    use_wandb: false
     project: cornell
     entity: chendiqian
     name: run1
@@ -24,7 +24,7 @@ encoder:
 
 #scorer_model: none
 scorer_model:
-    conv: mlp
+    conv: gin
     hidden: 128
     num_conv_layers: 0
     num_mlp_layers: 3
