@@ -1,6 +1,6 @@
 wandb:
-    use_wandb: false
-    project: debugg
+    use_wandb: true
+    project: cornell
     entity: chendiqian
     name: run1
 
@@ -38,20 +38,20 @@ base2centroid:
     conv: gine
     num_conv_layers: 2
     num_mlp_layers: 3
-    norm: graph_norm
+    norm: batch_norm
     activation: gelu
     dropout: 0.
 
 # the hetero, hierarchical GNN
 hetero:
     conv: gine
-    hidden: 192
-    num_conv_layers: 3
-    num_mlp_layers: 2
+    hidden: 256
+    num_conv_layers: 1
+    num_mlp_layers: 1
     norm: batch_norm
     activation: gelu
     dropout: 0.
-    residual: true
+    residual: false
 
 sampler:
     name: simple
