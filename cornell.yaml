@@ -1,6 +1,6 @@
 wandb:
-    use_wandb: false
-    project: cornell
+    use_wandb: true
+    project: debug
     entity: chendiqian
     name: run1
 
@@ -66,3 +66,9 @@ hybrid_model:
     intra_pred_layer: 2
     inter_ensemble_pool: mean
     intra_graph_pool: root
+
+plots:
+    plot_every: 2
+    plot_folder: './plots'
+    mask: true
+    score: true
