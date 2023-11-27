@@ -51,7 +51,7 @@ class HybridModel(torch.nn.Module):
         device = x.device
 
         # get scores and samples
-        scores = self.scorer_model(x, data.edge_index, data.edge_attr)
+        scores = self.scorer_model(x, data.batch, data.edge_index, data.edge_attr)
         node_mask, marginal = self.sampler(scores) if self.training else self.sampler.validation(scores)
         n_samples, nnodes, n_centroids, n_ensemble = node_mask.shape
         repeats = n_samples * n_ensemble

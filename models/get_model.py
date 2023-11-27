@@ -19,7 +19,6 @@ def get_model(args, device):
     if hasattr(args, 'scorer_model') and args.scorer_model is not None:
         scorer_model = ScorerGNN(
             conv=args.scorer_model.conv,
-            atom_encoder=atom_encoder,
             bond_encoder=bond_encoder,
             in_feature=args.hetero.hidden,
             hidden=args.scorer_model.hidden,
