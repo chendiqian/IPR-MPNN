@@ -57,21 +57,15 @@ def get_pretransform(args: Union[Namespace, ConfigDict], extra_pretransforms: Op
         return None
 
 
-def get_data(args: Union[Namespace, ConfigDict], *_args):
-    """
-    Distributor function
-
-    :param args:
-    :return:
-    """
+def get_data(args: Union[Namespace, ConfigDict], force_subset):
     if not os.path.isdir(args.data_path):
         os.mkdir(args.data_path)
 
     task = 'graph'
     if args.dataset.lower() == 'zinc':
-        train_set, val_set, test_set, std = get_zinc(args)
+        train_set, val_set, test_set, std = get_zinc(args, force_subset)
     elif args.dataset.lower().startswith('hetero'):
-        train_set, val_set, test_set, std = get_heterophily(args)
+        train_set, val_set, test_set, std = get_heterophily(args, force_subset)
         task = 'node'
     else:
         raise ValueError
@@ -82,19 +76,26 @@ def get_data(args: Union[Namespace, ConfigDict], *_args):
                          shuffle=not args.debug,
                          num_workers=NUM_WORKERS)
 
-    assert isinstance(train_set, (list, DATASET))
-    if isinstance(train_set, DATASET):
-        train_set = [train_set]
-        val_set = [val_set]
-        test_set = [test_set]
+    if not force_subset:  # potentially multi split training
+        assert isinstance(train_set, (list, DATASET))
+        if isinstance(train_set, DATASET):
+            train_set = [train_set]
+            val_set = [val_set]
+            test_set = [test_set]
 
-    train_loaders = [AttributedDataLoader(loader=dataloader(t), std=std, task=task) for i, t in enumerate(train_set)]
-    val_loaders = [AttributedDataLoader(loader=dataloader(t), std=std, task=task) for i, t in enumerate(val_set)]
-    test_loaders = [AttributedDataLoader(loader=dataloader(t), std=std, task=task) for i, t in enumerate(test_set)]
+        train_loaders = [AttributedDataLoader(loader=dataloader(t), std=std, task=task) for i, t in enumerate(train_set)]
+        val_loaders = [AttributedDataLoader(loader=dataloader(t), std=std, task=task) for i, t in enumerate(val_set)]
+        test_loaders = [AttributedDataLoader(loader=dataloader(t), std=std, task=task) for i, t in enumerate(test_set)]
+    else:  # for plots
+        assert isinstance(train_set, DATASET)
+        train_loaders = AttributedDataLoader(loader=dataloader(train_set), std=std, task=task)
+        val_loaders = AttributedDataLoader(loader=dataloader(val_set), std=std, task=task)
+        test_loaders = None
+
     return train_loaders, val_loaders, test_loaders
 
 
-def get_zinc(args: Union[Namespace, ConfigDict]):
+def get_zinc(args: Union[Namespace, ConfigDict], force_subset: bool):
     pre_transform = get_pretransform(args)
     transform = get_transform(args)
 
@@ -125,15 +126,15 @@ def get_zinc(args: Union[Namespace, ConfigDict]):
     val_set.data.y = val_set.data.y[:, None]
     test_set.data.y = test_set.data.y[:, None]
 
-    if args.debug:
-        train_set = train_set[:16]
-        val_set = val_set[:16]
-        test_set = test_set[:16]
+    if args.debug or force_subset:
+        train_set = train_set[:1]
+        val_set = val_set[:1]
+        test_set = test_set[:1]
 
     return train_set, val_set, test_set, None
 
 
-def get_heterophily(args):
+def get_heterophily(args, force_subset):
     dataset_name = args.dataset.lower().split('_')[1]
     datapath = os.path.join(args.data_path, 'hetero_' + dataset_name)
     extra_path = get_additional_path(args)
@@ -161,7 +162,8 @@ def get_heterophily(args):
             splits[split].append(dataset)
 
     train_set, val_set, test_set = splits['train'], splits['val'], splits['test']
-    if args.debug:
+
+    if args.debug or force_subset:
         train_set = train_set[0]
         val_set = val_set[0]
         test_set = test_set[0]

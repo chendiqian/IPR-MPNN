@@ -1,4 +1,3 @@
-import pdb
 from typing import Union
 
 import torch
@@ -54,6 +53,8 @@ class HybridModel(torch.nn.Module):
         scores = self.scorer_model(x, data.batch, data.edge_index, data.edge_attr)
         node_mask, marginal = self.sampler(scores) if self.training else self.sampler.validation(scores)
         n_samples, nnodes, n_centroids, n_ensemble = node_mask.shape
+        plot_node_mask = node_mask.detach().cpu().numpy()
+        plot_scores = scores.detach().cpu().numpy()
         repeats = n_samples * n_ensemble
 
         # add a dimension for multiply broadcasting
@@ -165,4 +166,4 @@ class HybridModel(torch.nn.Module):
             graph_embedding = self.intra_pred_head(graph_embedding)
         else:
             raise NotImplementedError
-        return graph_embedding
+        return graph_embedding, plot_node_mask, plot_scores

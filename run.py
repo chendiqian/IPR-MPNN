@@ -17,7 +17,7 @@ from data.get_data import get_data
 from data.utils import IsBetter
 from data.utils import Config, args_canonize
 from models.get_model import get_model
-from trainer import Trainer
+from trainer import Trainer, Plotter
 
 
 def args_parser():
@@ -41,9 +41,17 @@ def main(args, wandb):
             yaml.dump(args.to_dict(), outfile, default_flow_style=False)
 
     logging.basicConfig(level=logging.INFO)
-    train_loaders, val_loaders, test_loaders = get_data(args)
-
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    logging.info(f'Using device {device}')
+
+    train_loaders, val_loaders, test_loaders = get_data(args, False)
+
+    # for visualization
+    plotter = Plotter(device, args.plots if hasattr(args, 'plots') else None, args.wandb.use_wandb)
+    if hasattr(args, 'plots') and args.plots is not None:
+        plot_train_loader, plot_val_loader, _ = get_data(args, True)
+    else:
+        plot_train_loader, plot_val_loader = None, None
 
     trainer = Trainer(criterion=CRITERION_DICT[args.dataset.lower()],
                       evaluator=Evaluator(TASK_TYPE_DICT[args.dataset.lower()]),
@@ -70,12 +78,15 @@ def main(args, wandb):
                                                              mode=SCHEDULER_MODE[TASK_TYPE_DICT[args.dataset.lower()]],
                                                              factor=0.5, patience=50, min_lr=1.e-5)
 
-            pbar = tqdm(range(args.max_epoch))
+            pbar = tqdm(range(1, args.max_epoch + 1))
             for epoch in pbar:
                 train_loss, train_metric = trainer.train(train_loader, model, optimizer)
 
                 with torch.no_grad():
                     val_loss, val_metric = trainer.test(val_loader, model, scheduler)
+
+                with torch.no_grad():
+                    plotter(epoch, plot_train_loader, plot_val_loader, model, wandb)
 
                 is_better, the_better = comparison(val_metric, trainer.best_val_metric)
                 if is_better:
