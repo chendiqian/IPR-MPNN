@@ -5,4 +5,5 @@ simple_configs
 logs
 datasets
 wandb
+plots
 *.pt
