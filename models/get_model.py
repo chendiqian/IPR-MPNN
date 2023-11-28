@@ -100,6 +100,7 @@ def get_model(args, device):
             inter_pred_head=inter_pred_head,
             intra_graph_pool=args.hybrid_model.intra_graph_pool,
             inter_ensemble_pool=args.hybrid_model.inter_ensemble_pool,
+            auxloss_dict=args.auxloss if hasattr(args, 'auxloss') and args.auxloss is not None else None
         ).to(device)
         return hybrid_model
     else:

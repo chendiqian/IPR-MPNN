@@ -35,13 +35,14 @@ class Trainer:
             num_instances += y.shape[0]
 
             optimizer.zero_grad()
-            outputs, *_ = model(data)
+            outputs, _, _, auxloss = model(data)
 
             loss = self.criterion(outputs, y)
+            train_losses += loss.detach() * y.shape[0]
+            loss = loss + auxloss
             loss.backward()
             optimizer.step()
 
-            train_losses += loss.detach() * y.shape[0]
             preds.append(outputs.detach())
             labels.append(y)
 
@@ -122,7 +123,7 @@ class Plotter:
 
         for phase, data in data_dict.items():
             # nnodes, n_centroids, n_ensemble
-            _, node_mask, scores = model(data)
+            _, node_mask, scores, _ = model(data)
 
             # plot mask
             if self.plot_mask:

@@ -1,15 +1,19 @@
+from functools import partial
 from typing import Union
 
-import torch
 import numpy as np
-from torch_scatter import scatter_sum
+import torch
+from ml_collections import ConfigDict
+from torch_geometric.data import HeteroData
 from torch_geometric.utils import to_undirected
+from torch_scatter import scatter_sum
 
+from data.utils import Config
+from models.auxloss import get_auxloss
+from models.nn_utils import get_graph_pooling
 from samplers.gumbel_scheme import GumbelSampler
 from samplers.imle_scheme import IMLESampler
 from samplers.simple_scheme import SIMPLESampler
-from torch_geometric.data import HeteroData
-from models.nn_utils import get_graph_pooling
 
 
 class HybridModel(torch.nn.Module):
@@ -26,6 +30,7 @@ class HybridModel(torch.nn.Module):
                  inter_pred_head: torch.nn.Module,
                  intra_graph_pool: str,
                  inter_ensemble_pool: str,
+                 auxloss_dict: Union[Config, ConfigDict],
                  ):
         super(HybridModel, self).__init__()
 
@@ -43,6 +48,9 @@ class HybridModel(torch.nn.Module):
         self.graph_pool_idx = graph_pool_idx
         self.inter_pred_head = inter_pred_head
         self.intra_pred_head = intra_pred_head
+
+        self.auxloss = partial(get_auxloss,
+                               auxloss_dict=auxloss_dict) if auxloss_dict is not None else None
 
 
     def forward(self, data):
@@ -166,4 +174,13 @@ class HybridModel(torch.nn.Module):
             graph_embedding = self.intra_pred_head(graph_embedding)
         else:
             raise NotImplementedError
-        return graph_embedding, plot_node_mask, plot_scores
+
+        # get auxloss
+        if self.training and self.auxloss is not None:
+            auxloss = self.auxloss(pool=self.intra_graph_pool,
+                                   graph_pool_idx=self.graph_pool_idx,
+                                   scores=scores, data=data)
+        else:
+            auxloss = 0.
+
+        return graph_embedding, plot_node_mask, plot_scores, auxloss
