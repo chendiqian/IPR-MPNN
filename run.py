@@ -47,7 +47,7 @@ def main(args, wandb):
     train_loaders, val_loaders, test_loaders = get_data(args, False)
 
     # for visualization
-    plotter = Plotter(device, args.plots if hasattr(args, 'plots') else None, args.wandb.use_wandb)
+    plotter = Plotter(device, args.plots if hasattr(args, 'plots') else None)
     if hasattr(args, 'plots') and args.plots is not None:
         plot_train_loader, plot_val_loader, _ = get_data(args, True)
     else:

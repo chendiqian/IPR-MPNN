@@ -86,9 +86,8 @@ class Trainer:
 
 
 class Plotter:
-    def __init__(self, device, plot_args, use_wandb):
+    def __init__(self, device, plot_args):
         self.device = device
-        self.use_wandb = use_wandb
 
         if plot_args is None:
             self.plot_every = 10000000000
@@ -156,5 +155,4 @@ class Plotter:
                         bbox_inches='tight')
                 plt.close(fig)
 
-                if self.use_wandb:
-                    wandb.log({"plot": wandb.Image(fig)}, step=epoch)
+                wandb.log({"plot": wandb.Image(fig)}, step=epoch)
