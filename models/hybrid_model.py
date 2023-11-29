@@ -108,8 +108,8 @@ class HybridModel(torch.nn.Module):
 
         # construct a heterogeneous hierarchical graph
         # data is constructs like
-        # repeat1: [to_cent1: (g1, g2, g3, g4), to_cent2: (g1, g2, g3, g4), to_cent3: (g1, g2, g3, g4)],
-        # repeat2: [to_cent1: (g1, g2, g3, g4), to_cent2: (g1, g2, g3, g4), to_cent3: (g1, g2, g3, g4)]
+        # repeat1: [g1: (to_centroid1, to_centroid2, ...), g2: (to_centroid1, to_centroid2, ...)],
+        # repeat2: [g1: (to_centroid1, to_centroid2, ...), g2: (to_centroid1, to_centroid2, ...)]
         cumsum_nnodes = data._slice_dict['x'].to(device)
         nnodes_list = cumsum_nnodes[1:] - cumsum_nnodes[:-1]
 

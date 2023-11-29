@@ -114,6 +114,7 @@ class GNNMultiEdgeset(torch.nn.Module):
             nnz_node_mask = node_mask.reshape(-1)[nnz_x_idx][..., None]
             x = x[nnz_x_idx, :]
             batch = batch[nnz_x_idx]
+            # (repeats * n_centroids * n_graphs) * F
             x = scatter_sum(x * nnz_node_mask, batch, dim=0, dim_size=n_centroids * n_graphs * repeats) / \
                 (scatter_sum(nnz_node_mask.detach(), batch, dim=0, dim_size=n_centroids * n_graphs * repeats) + 1.e-7)
             x = x.reshape(repeats, n_centroids, n_graphs, x.shape[-1])
