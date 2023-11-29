@@ -154,8 +154,11 @@ class HybridModel(torch.nn.Module):
         intra_edge_weights = intra_edge_weights.permute(1, 0, 2) / intra_edge_weights.detach().max()
 
         new_data = HeteroData(
-            base={'x': x.repeat(repeats, 1)},
-            centroid={'x': centroid_x},
+            base={'x': x.repeat(repeats, 1),
+                  'batch': data.batch.repeat(repeats) +
+                           torch.arange(repeats, device=device).repeat_interleave(nnodes) * data.num_graphs},
+            centroid={'x': centroid_x,
+                      'batch': torch.arange(repeats * data.num_graphs, device=device).repeat_interleave(n_centroids)},
 
             base__to__base={'edge_index': data.edge_index.repeat(1, repeats) + \
                                           torch.arange(repeats, device=device).repeat_interleave(data.num_edges) * data.num_nodes,

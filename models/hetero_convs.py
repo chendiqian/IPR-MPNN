@@ -24,7 +24,7 @@ class HeteroGINEConv(MessagePassing):
         self.mlp = MLP([hid_dim] * (num_mlp_layers + 1), norm=norm, act=act)
         self.eps = torch.nn.Parameter(torch.Tensor([0.]))
 
-    def forward(self, x, edge_index, edge_attr, edge_weight = None):
+    def forward(self, x, edge_index, edge_attr, edge_weight=None, batch=None):
         x = (self.lin_src(x[0]), x[1])
 
         if edge_attr is not None and self.edge_encoder is not None:
@@ -36,7 +36,7 @@ class HeteroGINEConv(MessagePassing):
         x_dst = self.lin_dst(x_dst)
         out = out + x_dst
 
-        return self.mlp(out)
+        return self.mlp(out, batch)
 
     def message(self, x_j, edge_attr, edge_weight):
         if edge_weight is not None and edge_weight.ndim < 2:
@@ -94,6 +94,7 @@ class HeteroConv(torch.nn.Module):
         edge_index_dict: Dict[EdgeType, Adj],
         edge_attr_dict: Dict[EdgeType, Tensor],
         edge_weight_dict: Dict[EdgeType, Tensor],
+        batch_dict: Dict[NodeType, Tensor],
     ) -> Dict[NodeType, Tensor]:
         for cur_rank, cur_convs in enumerate(self.ranked_convs):
             out_dict = defaultdict(list)
@@ -108,7 +109,8 @@ class HeteroConv(torch.nn.Module):
                 out = conv((x_dict[src], x_dict[dst]),
                            edge_index,
                            edge_attr_dict.get(edge_type, None),
-                           edge_weight_dict.get(edge_type, None))
+                           edge_weight_dict.get(edge_type, None),
+                           batch_dict[dst])
                 out_dict[dst].append(out)
 
             for key, value in out_dict.items():

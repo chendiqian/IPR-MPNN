@@ -64,10 +64,11 @@ class HeteroGNN(torch.nn.Module):
         x_dict = data.x_dict
         edge_index_dict, edge_weight_dict = data.edge_index_dict, data.edge_weight_dict
         edge_attr_dict = data.edge_attr_dict if has_edge_attr else {}
+        batch_dict = data.batch_dict
 
         for i in range(self.num_layers):
             h1 = x_dict
-            h2 = self.gnn_convs[i](x_dict, edge_index_dict, edge_attr_dict, edge_weight_dict)
+            h2 = self.gnn_convs[i](x_dict, edge_index_dict, edge_attr_dict, edge_weight_dict, batch_dict)
             keys = h2.keys()
             if self.use_res:
                 x_dict = {k: residual(h1[k], F.gelu(h2[k])) for k in keys}
