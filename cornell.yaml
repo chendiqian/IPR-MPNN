@@ -2,7 +2,7 @@ wandb:
     use_wandb: false
     project: debug
     entity: chendiqian
-    name: run1
+    name: run1_old
 
 ckpt: false
 
@@ -12,7 +12,7 @@ batch_size: 1
 lr: 1.e-3
 weight_decay: 0.
 debug: false
-num_runs: 3
+num_runs: 5
 max_epoch: 1000
 min_epoch: 100
 patience: 100
@@ -25,9 +25,9 @@ encoder:
 #scorer_model: none
 scorer_model:
     conv: gin
-    hidden: 128
+    hidden: 64
     num_conv_layers: 0
-    num_mlp_layers: 3
+    num_mlp_layers: 4
     norm: batch_norm
     activation: gelu
     dropout: 0.
@@ -45,9 +45,9 @@ base2centroid:
 # the hetero, hierarchical GNN
 hetero:
     conv: gine
-    hidden: 256
+    hidden: 320
     num_conv_layers: 1
-    num_mlp_layers: 1
+    num_mlp_layers: 2
     norm: batch_norm
     activation: gelu
     dropout: 0.
@@ -59,19 +59,20 @@ sampler:
     num_ensemble: 1
     train_samples: 1
     val_samples: 1
+    assign_value: true  # use marginals to assign weights on the node masks
 
 hybrid_model:
     target: base
-    inter_pred_layer: 2
-    intra_pred_layer: 2
+    inter_pred_layer: 1
+    intra_pred_layer: 3
     inter_ensemble_pool: mean
     intra_graph_pool: root
 
 #plots:
-#    plot_every: 2
+#    plot_every: 50
 #    plot_folder: './plots'
 #    mask: true
 #    score: true
 
-#auxloss:
-#    scorer_label_supervised: 0.1
+auxloss:
+    scorer_label_supervised: 0.7
