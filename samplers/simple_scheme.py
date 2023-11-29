@@ -14,7 +14,8 @@ class SIMPLESampler(nn.Module):
                  k,
                  device,
                  val_ensemble=1,
-                 train_ensemble=1):
+                 train_ensemble=1,
+                 assign_value=False):
         super(SIMPLESampler, self).__init__()
         self.k = k
         self.device = device
@@ -22,8 +23,9 @@ class SIMPLESampler(nn.Module):
         assert val_ensemble > 0 and train_ensemble > 0
         self.val_ensemble = val_ensemble
         self.train_ensemble = train_ensemble
+        self.assign_value = assign_value
 
-    def forward(self, scores, train = True):
+    def forward(self, scores, train=True, sample_from_score=True):
         times_sampled = self.train_ensemble if train else self.val_ensemble
 
         nnodes, choices, ensemble = scores.shape
@@ -46,28 +48,34 @@ class SIMPLESampler(nn.Module):
                         device=flat_scores.device)],
             dim=1)
 
-        # we potentially need to sample multiple times
         marginals = layer.log_pr(flat_scores).exp().permute(1, 0)
-        # (times_sampled) x (B x E) x (N x N)
-        samples = layer.sample(flat_scores, local_k, times_sampled)
-        samples = (samples - marginals[None]).detach() + marginals[None]
+        marginals = marginals[:, :choices]  # unpadding
+        marginals = marginals.reshape(nnodes, ensemble, choices).permute((0, 2, 1))
 
-        # unpadding
-        samples = samples[..., :choices]
-        marginals = marginals[:, :choices]
+        if sample_from_score:
+            # we potentially need to sample multiple times
+            samples = layer.sample(flat_scores, local_k, times_sampled)
+            samples = samples[..., :choices]
+            samples = samples.reshape(times_sampled, nnodes, ensemble, choices).permute((0, 1, 3, 2))
+            samples = (samples - marginals[None]).detach() + marginals[None]
+            if self.assign_value:
+                samples = samples * (marginals[None] + 1.e-7)
+        else:
+            samples = None
 
-        new_mask = samples.reshape(times_sampled, nnodes, ensemble, choices).permute((0, 1, 3, 2))
-        new_marginals = marginals.reshape(nnodes, ensemble, choices).permute((0, 2, 1))
-
-        return new_mask, new_marginals
+        return samples, marginals
 
     @torch.no_grad()
     def validation(self, scores):
         if self.val_ensemble == 1:
-            _, marginals = self.forward(scores, False)
+            _, marginals = self.forward(scores, False, sample_from_score=False)
 
             # do deterministic top-k
             mask = select_from_candidates(scores, self.k)
+
+            if self.assign_value:
+                mask = mask * (marginals + 1.e-7)
+
             return mask[None], marginals
         else:
             return self.forward(scores, False)

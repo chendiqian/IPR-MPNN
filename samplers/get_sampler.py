@@ -12,7 +12,8 @@ def get_sampler(sampler_args, device):
             sampler_args.sample_k,
             device=device,
             val_ensemble=sampler_args.val_samples,
-            train_ensemble=sampler_args.train_samples
+            train_ensemble=sampler_args.train_samples,
+            assign_value=sampler_args.assign_value,
         )
     elif sampler_args.name == 'imle':
         return IMLESampler(
