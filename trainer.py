@@ -128,8 +128,6 @@ class Plotter:
             if self.plot_mask:
                 n_samples, nnodes, n_centroids, n_ensemble = node_mask.shape
 
-                node_mask = -node_mask
-
                 vmin = np.min(node_mask)
                 vmax = np.max(node_mask)
 
