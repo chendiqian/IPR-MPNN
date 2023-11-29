@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from ml_collections import ConfigDict
 from torch_geometric.data import HeteroData
-from torch_geometric.utils import to_undirected
+from torch_geometric.utils import to_undirected, subgraph
 from torch_scatter import scatter_sum
 
 from data.utils import Config
@@ -84,27 +84,43 @@ class HybridModel(torch.nn.Module):
                 edge_mask
             )
         else:
-            # Todo: check if performance degrade if not repeat n_centroids times
+            # sparsify the edges
             new_edge_index = data.edge_index.repeat(1, repeats * n_centroids) + \
                              torch.arange(repeats * n_centroids, device=device).repeat_interleave(
                                  data.num_edges) * data.num_nodes
             nnz_edge_idx = edge_mask.reshape(-1).nonzero().squeeze()
             new_edge_index = new_edge_index[:, nnz_edge_idx]
+            nnz_edge_mask = edge_mask.reshape(-1)[nnz_edge_idx][..., None]
             if data.edge_attr is not None:
-                new_edge_attr = data.edge_attr.repeat(repeats * n_centroids) if data.edge_attr.dim() == 1 else \
-                        data.edge_attr.repeat(repeats * n_centroids, 1)
-                new_edge_attr = new_edge_attr[nnz_edge_idx]
+                nnz_edge_idx = edge_mask.squeeze(-1).nonzero()[..., -1]
+                new_edge_attr = data.edge_attr[nnz_edge_idx]
             else:
                 new_edge_attr = None
-            nnz_edge_mask = edge_mask.reshape(-1)[nnz_edge_idx][..., None]
 
+            # sparsify the nodes
+            nnz_x_idx = node_mask.squeeze(-1).nonzero()[..., -1]
+            x_repeat = x[nnz_x_idx, :]
+
+            nnz_x_idx = node_mask.reshape(-1).nonzero().squeeze()
+            nnz_node_mask = node_mask.reshape(-1)[nnz_x_idx][..., None]
+            batch = batch[nnz_x_idx]
+
+            new_edge_index, new_edge_attr, subg_edge_mask = subgraph(nnz_x_idx,
+                                                                     new_edge_index,
+                                                                     new_edge_attr,
+                                                                     relabel_nodes=True,
+                                                                     num_nodes=data.num_nodes * repeats * n_centroids,
+                                                                     return_edge_mask=True)
+
+            nnz_edge_mask = nnz_edge_mask[subg_edge_mask]
             centroid_x = self.base2centroid_model(
-                x.repeat(repeats, n_centroids, 1, 1).reshape(-1, x.shape[-1]),
+                x_repeat,
                 batch,
                 new_edge_index,
                 new_edge_attr,
-                node_mask,
-                nnz_edge_mask)
+                nnz_node_mask,
+                nnz_edge_mask,
+                (n_centroids, data.num_graphs, repeats))
 
         # construct a heterogeneous hierarchical graph
         # data is constructs like

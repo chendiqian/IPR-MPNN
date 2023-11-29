@@ -1,5 +1,7 @@
 import inspect
+from typing import Tuple
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.nn import Identity
@@ -87,7 +89,7 @@ class GNNMultiEdgeset(torch.nn.Module):
                        act=activation,
                        norm=norm)
 
-    def forward(self, x, batch, edge_index, edge_attr, node_mask, edge_mask):
+    def forward(self, x, batch, edge_index, edge_attr, node_mask, edge_mask, dim_size: Tuple = None):
         for i, conv in enumerate(self.convs):
             x_new = conv(x, edge_index, edge_attr, edge_mask)
             if self.supports_norm_batch:
@@ -101,22 +103,18 @@ class GNNMultiEdgeset(torch.nn.Module):
         x = self.mlp(x, batch)
 
         # pooling
-        repeats, n_centroids, nnodes, _ = node_mask.shape
-        single_batch = batch[:nnodes]  # it has been repeated
         if self.training:
+            repeats, n_centroids, nnodes, _ = node_mask.shape
+            single_batch = batch[:nnodes]  # it has been repeated
             x = x.reshape(repeats, n_centroids, nnodes, -1)
             x = scatter_sum(x * node_mask, single_batch, dim=2) / \
                 (scatter_sum(node_mask.detach(), single_batch, dim=2) + 1.e-7)
             x = x.permute(0, 2, 1, 3).reshape(-1, x.shape[-1])
         else:
-            n_graphs = single_batch.max() + 1
-            nnz_x_idx = node_mask.reshape(-1).nonzero().squeeze()
-            nnz_node_mask = node_mask.reshape(-1)[nnz_x_idx][..., None]
-            x = x[nnz_x_idx, :]
-            batch = batch[nnz_x_idx]
+            n_centroids, n_graphs, repeats = dim_size
             # (repeats * n_centroids * n_graphs) * F
-            x = scatter_sum(x * nnz_node_mask, batch, dim=0, dim_size=n_centroids * n_graphs * repeats) / \
-                (scatter_sum(nnz_node_mask.detach(), batch, dim=0, dim_size=n_centroids * n_graphs * repeats) + 1.e-7)
+            x = scatter_sum(x * node_mask, batch, dim=0, dim_size=np.prod(dim_size).item()) / \
+                (scatter_sum(node_mask.detach(), batch, dim=0, dim_size=np.prod(dim_size).item()) + 1.e-7)
             x = x.reshape(repeats, n_centroids, n_graphs, x.shape[-1])
             x = x.permute(0, 2, 1, 3).reshape(-1, x.shape[-1])
         return x
