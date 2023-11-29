@@ -98,7 +98,7 @@ class GNNMultiEdgeset(torch.nn.Module):
             x_new = F.dropout(x_new, p=self.dropout, training=self.training)
             x = x_new
 
-        x = self.mlp(x)
+        x = self.mlp(x, batch)
 
         # pooling
         repeats, n_centroids, nnodes, _ = node_mask.shape
