@@ -81,7 +81,7 @@ class Trainer:
 
     def clear_stats(self):
         self.best_val_loss = 1e5
-        self.best_val_metric = 0.
+        self.best_val_metric = None
         self.patience = 0
 
 
