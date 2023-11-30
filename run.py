@@ -82,7 +82,10 @@ def main(args, wandb):
 
             pbar = tqdm(range(1, args.max_epoch + 1))
             for epoch in pbar:
-                train_loss, train_metric = trainer.train(train_loader, model, optimizer)
+                try:
+                    train_loss, train_metric = trainer.train(train_loader, model, optimizer)
+                except:
+                    torch.save(model.state_dict(), os.path.join(run_folder, f'model_backup_{epoch}.pt'))
 
                 with torch.no_grad():
                     val_loss, val_metric = trainer.test(val_loader, model, scheduler)
