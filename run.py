@@ -35,7 +35,7 @@ def main(args, wandb):
         if not os.path.isdir('logs'):
             os.mkdir('logs')
         exp_time = "".join(str(datetime.now()).split(":"))
-        log_folder_name = f'logs/{args.dataset}_{args.model}_{exp_time}'
+        log_folder_name = f'logs/{args.dataset}_{exp_time}'
         os.mkdir(log_folder_name)
         with open(os.path.join(log_folder_name, 'config.yaml'), 'w') as outfile:
             yaml.dump(args.to_dict(), outfile, default_flow_style=False)
