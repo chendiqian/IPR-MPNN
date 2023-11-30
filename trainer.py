@@ -122,7 +122,6 @@ class Plotter:
                      'val': val_data.to(self.device)}
 
         for phase, data in data_dict.items():
-            # nnodes, n_centroids, n_ensemble
             _, node_mask, scores, _ = model(data)
 
             # plot mask
@@ -150,8 +149,39 @@ class Plotter:
                 if self.plot_folder is not None:
                     fig.savefig(
                         os.path.join(self.plot_folder,
-                                     f'epoch{epoch}_{phase}.png'),
+                                     f'mask_epoch{epoch}_{phase}.png'),
                         bbox_inches='tight')
                 plt.close(fig)
 
-                wandb.log({"plot": wandb.Image(fig)}, step=epoch)
+                wandb.log({"plot_mask": wandb.Image(fig)}, step=epoch)
+
+            # plot mask
+            if self.plot_score:
+                nnodes, n_centroids, n_ensemble = scores.shape
+
+                vmin = np.min(scores)
+                vmax = np.max(scores)
+
+                fig, axs = plt.subplots(ncols=n_ensemble + 1,
+                                        figsize=(n_centroids * n_ensemble * 1.2, nnodes),
+                                        gridspec_kw=dict(width_ratios=[1.] * n_ensemble + [0.2]))
+
+                for ens in range(n_ensemble):
+                    # nnodes, n_centroids
+                    mask = scores[:, :, ens]
+
+                    axs[ens].set_axis_off()
+                    sns.heatmap(mask, cbar=False, vmin=vmin, vmax=vmax, ax=axs[ens],
+                                linewidths=0.1, linecolor='yellow')
+                    axs[ens].title.set_text(f'ens{ens}')
+
+                fig.colorbar(axs[0].collections[0], cax=axs[-1])
+
+                if self.plot_folder is not None:
+                    fig.savefig(
+                        os.path.join(self.plot_folder,
+                                     f'scores_epoch{epoch}_{phase}.png'),
+                        bbox_inches='tight')
+                plt.close(fig)
+
+                wandb.log({"plot_score": wandb.Image(fig)}, step=epoch)
