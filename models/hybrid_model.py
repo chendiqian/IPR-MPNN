@@ -151,7 +151,7 @@ class HybridModel(torch.nn.Module):
                                                 intra_num_edges.permute(1, 0, 2),
                                                 reduce='mean')
         # after: repeats x n_centroids^2 x n_graphs
-        intra_edge_weights = intra_edge_weights.permute(1, 0, 2) / intra_edge_weights.detach().max()
+        intra_edge_weights = intra_edge_weights.permute(1, 0, 2) / (intra_edge_weights.detach().abs().max() + 1.e-7)
 
         new_data = HeteroData(
             base={'x': x.repeat(repeats, 1),
