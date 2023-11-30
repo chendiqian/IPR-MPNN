@@ -78,6 +78,8 @@ def main(args, wandb):
                                                              mode=SCHEDULER_MODE[TASK_TYPE_DICT[args.dataset.lower()]],
                                                              factor=0.5, patience=50, min_lr=1.e-5)
 
+            wandb.watch(model, log='all', log_freq=1)
+
             pbar = tqdm(range(1, args.max_epoch + 1))
             for epoch in pbar:
                 train_loss, train_metric = trainer.train(train_loader, model, optimizer)
