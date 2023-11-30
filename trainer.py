@@ -41,6 +41,7 @@ class Trainer:
             train_losses += loss.detach() * y.shape[0]
             loss = loss + auxloss
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0, error_if_nonfinite=True)
             optimizer.step()
 
             preds.append(outputs.detach())
