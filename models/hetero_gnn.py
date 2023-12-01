@@ -149,7 +149,7 @@ class HeteroGNN(torch.nn.Module):
         b2b, b2c, c2c, c2b = (0, 0, 0, 0) if parallel else (0, 1, 2, 3)
         self.gnn_convs = torch.nn.ModuleList()
         for layer in range(num_conv_layers):
-            in_dim = 2 * hid_dim if (layer > 0 and aggr == 'cat') else hid_dim
+            in_dim = 2 * hid_dim if (layer > 0 and aggr == 'cat' and parallel) else hid_dim
 
             self.gnn_convs.append(
                 HeteroConv({

@@ -1,3 +1,5 @@
+from torch_geometric.nn import MLP
+
 from data.const import DATASET_FEATURE_STAT_DICT
 from models.base2centroid import GNNMultiEdgeset
 from models.hetero_gnn import HeteroGNN
@@ -5,7 +7,6 @@ from models.hybrid_model import HybridModel
 from models.my_encoders import get_bond_encoder, get_atom_encoder
 from models.scorer_model import ScorerGNN
 from samplers.get_sampler import get_sampler
-from torch_geometric.nn import MLP
 
 
 def get_model(args, device):
@@ -83,11 +84,12 @@ def get_model(args, device):
                               out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'],
                               num_layers=args.hybrid_model.intra_pred_layer,
                               norm=None)
-        inter_pred_head = MLP(in_channels=args.hetero.hidden,
-                              hidden_channels=args.hetero.hidden,
-                              out_channels=args.hetero.hidden,
-                              num_layers=args.hybrid_model.inter_pred_layer,
-                              norm=None)
+        inter_pred_head = MLP(
+            in_channels=args.hetero.hidden * (2 if (args.hetero.aggr == 'cat' and args.hetero.parallel) else 1),
+            hidden_channels=args.hetero.hidden,
+            out_channels=args.hetero.hidden,
+            num_layers=args.hybrid_model.inter_pred_layer,
+            norm=None)
 
         hybrid_model = HybridModel(
             atom_encoder=atom_encoder,
