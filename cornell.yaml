@@ -52,6 +52,8 @@ hetero:
     activation: gelu
     dropout: 0.
     residual: false
+    aggr: mean
+    parallel: false
 
 sampler:
     name: simple
