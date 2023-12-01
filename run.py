@@ -78,14 +78,11 @@ def main(args, wandb):
                                                              mode=SCHEDULER_MODE[TASK_TYPE_DICT[args.dataset.lower()]],
                                                              factor=0.5, patience=50, min_lr=1.e-5)
 
-            wandb.watch(model, log='all', log_freq=1)
+            # wandb.watch(model, log='all', log_freq=1)
 
             pbar = tqdm(range(1, args.max_epoch + 1))
             for epoch in pbar:
-                try:
-                    train_loss, train_metric = trainer.train(train_loader, model, optimizer)
-                except:
-                    torch.save(model.state_dict(), os.path.join(run_folder, f'model_backup_{epoch}.pt'))
+                train_loss, train_metric = trainer.train(train_loader, model, optimizer)
 
                 with torch.no_grad():
                     val_loss, val_metric = trainer.test(val_loader, model, scheduler)
