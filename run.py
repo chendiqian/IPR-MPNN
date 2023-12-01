@@ -140,7 +140,7 @@ if __name__ == '__main__':
     args = args_canonize(args)
 
     wandb.init(project=args.wandb.project,
-               name=args.wandb.name if args.wandb.name else None,
+               name=args.wandb.name if hasattr(args.wandb, 'name') else None,
                mode="online" if args.wandb.use_wandb else "disabled",
                config=vars(args),
                entity=args.wandb.entity)  # use your own entity
