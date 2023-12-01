@@ -61,6 +61,8 @@ def get_model(args, device):
             norm=args.hetero.norm,
             activation=args.hetero.activation,
             use_res=args.hetero.residual,
+            aggr=args.hetero.aggr,
+            parallel=args.hetero.parallel,
         )
     else:
         hetero_mpnn = None
