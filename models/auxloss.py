@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from torch_scatter import scatter_sum
 
 
 def sort_lexico(mask: torch.Tensor):
@@ -52,4 +53,26 @@ def get_auxloss(auxloss_dict, pool, graph_pool_idx, scores, data):
 
             # care the sign
             auxloss = auxloss - loss * auxloss_dict.variance
+    if hasattr(auxloss_dict, 'hard_empty') and auxloss_dict.hard_empty > 0.:
+        # hard barrier function, punish the case that a cluster has 0 nodes
+        # if the weight is too large, the scores per node would be the same, but not across different nodes
+        # 0.01 is a good number
+        thresh = torch.topk(scores, 1, dim=1, largest=True, sorted=True).values[:, -1, :][:, None, :]
+        node_mask = (scores >= thresh).to(torch.float)
+        node_mask = node_mask - scores.detach() + scores
+
+        counts = scatter_sum(node_mask, data.batch, dim=0)
+        loss = - torch.log(counts + 1.).sum(1).mean()  # otherwise the grad too large
+        auxloss = auxloss + auxloss_dict.hard_empty * loss
+    if hasattr(auxloss_dict, 'soft_empty') and auxloss_dict.soft_empty > 0.:
+        # soft barrier function
+        # if the number is large, all scores would be small, so good against huge scores
+        # the score for cluster i across different nodes may be similar
+        # but the max would not be effected, i.e., still can have an empty cluster
+        # 0.001 or smaller
+        node_mask = torch.softmax(scores, dim=1)
+
+        counts = scatter_sum(node_mask, data.batch, dim=0)
+        loss = - torch.log(counts).sum(1).mean()
+        auxloss = auxloss + auxloss_dict.soft_empty * loss
     return auxloss
