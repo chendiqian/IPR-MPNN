@@ -5,8 +5,8 @@ import numpy as np
 import torch
 from ml_collections import ConfigDict
 from torch_geometric.data import HeteroData
-from torch_geometric.utils import to_undirected, subgraph
-from torch_scatter import scatter_sum
+# from torch_geometric.utils import to_undirected
+# from torch_scatter import scatter_sum
 
 from data.utils import Config
 from models.auxloss import get_auxloss
@@ -18,8 +18,6 @@ from samplers.simple_scheme import SIMPLESampler
 
 class HybridModel(torch.nn.Module):
     def __init__(self,
-                 atom_encoder: torch.nn.Module,
-                 bond_encoder: torch.nn.Module,
                  scorer_model: torch.nn.Module,
                  base2centroid_model: torch.nn.Module,
                  sampler: Union[IMLESampler, SIMPLESampler, GumbelSampler],
@@ -34,8 +32,6 @@ class HybridModel(torch.nn.Module):
                  ):
         super(HybridModel, self).__init__()
 
-        self.atom_encoder = atom_encoder
-        self.edge_encoder = bond_encoder
         self.scorer_model = scorer_model
         self.base2centroid_model = base2centroid_model
         self.sampler = sampler
@@ -53,11 +49,10 @@ class HybridModel(torch.nn.Module):
                                auxloss_dict=auxloss_dict) if auxloss_dict is not None else None
 
     def forward(self, data):
-        x = self.atom_encoder(data)
-        device = x.device
+        device = data.x.device
 
         # get scores and samples
-        scores = self.scorer_model(x, data.batch, data.edge_index, data.edge_attr)
+        scores = self.scorer_model(data)
         node_mask, marginal = self.sampler(scores) if self.training else self.sampler.validation(scores)
         n_samples, nnodes, n_centroids, n_ensemble = node_mask.shape
         plot_node_mask = node_mask.detach().cpu().numpy()
@@ -68,58 +63,14 @@ class HybridModel(torch.nn.Module):
         node_mask = node_mask.permute(0, 3, 2, 1).reshape(repeats, n_centroids, nnodes)[..., None]
         edge_mask = node_mask[:, :, data.edge_index[0], :] * node_mask[:, :, data.edge_index[1], :]
 
-        batch = data.batch.repeat(repeats * n_centroids) + \
-                torch.arange(repeats * n_centroids, device=device).repeat_interleave(nnodes) * data.num_graphs
-
         # map clustered nodes into each centroid
-        if self.training:
-            # repeats, n_centroids, n_graphs, features
-            centroid_x = self.base2centroid_model(
-                x.repeat(repeats, n_centroids, 1, 1).reshape(-1, x.shape[-1]),
-                batch,
-                data.edge_index,
-                data.edge_attr,
-                node_mask,
-                edge_mask
-            )
-        else:
-            # sparsify the edges
-            new_edge_index = data.edge_index.repeat(1, repeats * n_centroids) + \
-                             torch.arange(repeats * n_centroids, device=device).repeat_interleave(
-                                 data.num_edges) * data.num_nodes
-            nnz_edge_idx = edge_mask.reshape(-1).nonzero().squeeze()
-            new_edge_index = new_edge_index[:, nnz_edge_idx]
-            nnz_edge_mask = edge_mask.reshape(-1)[nnz_edge_idx][..., None]
-            if data.edge_attr is not None:
-                nnz_edge_idx = edge_mask.squeeze(-1).nonzero()[..., -1]
-                new_edge_attr = data.edge_attr[nnz_edge_idx]
-            else:
-                new_edge_attr = None
-
-            # sparsify the nodes
-            nnz_x_idx = node_mask.squeeze(-1).nonzero()[..., -1]
-            x_repeat = x[nnz_x_idx, :]
-
-            nnz_x_idx = node_mask.reshape(-1).nonzero().squeeze()
-            nnz_node_mask = node_mask.reshape(-1)[nnz_x_idx][..., None]
-            batch = batch[nnz_x_idx]
-
-            new_edge_index, new_edge_attr, subg_edge_mask = subgraph(nnz_x_idx,
-                                                                     new_edge_index,
-                                                                     new_edge_attr,
-                                                                     relabel_nodes=True,
-                                                                     num_nodes=data.num_nodes * repeats * n_centroids,
-                                                                     return_edge_mask=True)
-
-            nnz_edge_mask = nnz_edge_mask[subg_edge_mask]
-            centroid_x = self.base2centroid_model(
-                x_repeat,
-                batch,
-                new_edge_index,
-                new_edge_attr,
-                nnz_node_mask,
-                nnz_edge_mask,
-                (n_centroids, data.num_graphs, repeats))
+        # repeats, n_centroids, n_graphs, features
+        centroid_x = self.base2centroid_model(
+            data,
+            node_mask,
+            edge_mask,
+            (n_centroids, data.num_graphs, repeats)
+        )
 
         # construct a heterogeneous hierarchical graph
         # data is constructs like
@@ -160,7 +111,7 @@ class HybridModel(torch.nn.Module):
         idx = torch.from_numpy(idx).to(device)
 
         new_data = HeteroData(
-            base={'x': x.repeat(repeats, 1),
+            base={'x': data.x,   # will be later filled
                   'batch': data.batch.repeat(repeats) +
                            torch.arange(repeats, device=device).repeat_interleave(nnodes) * data.num_graphs},
             centroid={'x': centroid_x,
@@ -198,6 +149,7 @@ class HybridModel(torch.nn.Module):
         )
 
         base_embedding, centroid_embedding = self.hetero_gnn(
+            data,
             new_data,
             hasattr(data, 'edge_attr') and data.edge_attr is not None)
 

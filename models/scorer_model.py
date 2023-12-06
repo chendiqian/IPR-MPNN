@@ -1,4 +1,5 @@
 import inspect
+from typing import Callable
 
 import torch
 import torch.nn.functional as F
@@ -10,7 +11,8 @@ from torch_geometric.nn.resolver import normalization_resolver
 class ScorerGNN(torch.nn.Module):
     def __init__(self,
                  conv: str,
-                 bond_encoder: torch.nn.Module,
+                 atom_encoder_handler: Callable,
+                 bond_encoder_handler: Callable,
                  in_feature: int,
                  hidden: int,
                  num_conv_layers: int,
@@ -23,7 +25,8 @@ class ScorerGNN(torch.nn.Module):
                  ):
         super(ScorerGNN, self).__init__()
 
-        self.edge_encoder = bond_encoder
+        self.atom_encoder = atom_encoder_handler()
+        self.edge_encoder = bond_encoder_handler()
         self.num_centroids = num_centroids
         self.num_ensemble = num_ensemble
 
@@ -31,7 +34,7 @@ class ScorerGNN(torch.nn.Module):
         self.norms = torch.nn.ModuleList()
         self.dropout = dropout
 
-        edge_dim = in_feature if bond_encoder is not None else None
+        edge_dim = in_feature if self.edge_encoder is not None else None
         in_dims = [in_feature] + [hidden] * max(num_conv_layers - 1, 0)
         for i in range(num_conv_layers):
             if conv == 'gin':
@@ -71,7 +74,9 @@ class ScorerGNN(torch.nn.Module):
                        act=activation,
                        norm=norm)
 
-    def forward(self, x, batch, edge_index, edge_attr):
+    def forward(self, data):
+        batch, edge_index, edge_attr = data.batch, data.edge_index, data.edge_attr
+        x = self.atom_encoder(data)
         if edge_attr is not None and self.edge_encoder is not None:
             edge_attr = self.edge_encoder(edge_attr)
 

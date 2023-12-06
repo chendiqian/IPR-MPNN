@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torch.nn import Identity
 from torch_geometric.nn import MLP
 from torch_geometric.nn.resolver import normalization_resolver
+from torch_geometric.utils import subgraph
 from torch_scatter import scatter_sum
 
 
@@ -23,7 +24,8 @@ class GINEConvMultiEdgeset(torch.nn.Module):
         # repeats, choices, nedges, 1 = edge_weight.shape
 
         # 1, 1, nedges, features
-        edge_embedding = self.bond_encoder(edge_attr) if edge_attr is not None else torch.zeros(1, 1, device=x.device, dtype=x.dtype)
+        edge_embedding = self.bond_encoder(edge_attr) if edge_attr is not None else torch.zeros(1, 1, device=x.device,
+                                                                                                dtype=x.dtype)
 
         if self.training:
             edge_embedding = edge_embedding.repeat(1, 1, 1, 1)
@@ -46,7 +48,8 @@ class GINEConvMultiEdgeset(torch.nn.Module):
 class GNNMultiEdgeset(torch.nn.Module):
     def __init__(self,
                  conv,
-                 edge_encoder,
+                 atom_encoder_handler,
+                 bond_encoder_handler,
                  hidden,
                  num_conv_layers,
                  num_mlp_layers,
@@ -57,6 +60,7 @@ class GNNMultiEdgeset(torch.nn.Module):
         super(GNNMultiEdgeset, self).__init__()
 
         assert conv == 'gine'
+        self.atom_encoder = atom_encoder_handler()
         self.dropout = dropout
 
         dims = [hidden] * (num_conv_layers + 1)
@@ -72,7 +76,7 @@ class GNNMultiEdgeset(torch.nn.Module):
                         torch.nn.GELU(),
                         torch.nn.Linear(dim_out, dim_out),
                     ),
-                    edge_encoder,
+                    bond_encoder_handler(),
                 )
             )
             self.norms.append(normalization_resolver(norm, dim_out) if norm is not None else Identity())
@@ -89,7 +93,48 @@ class GNNMultiEdgeset(torch.nn.Module):
                        act=activation,
                        norm=norm)
 
-    def forward(self, x, batch, edge_index, edge_attr, node_mask, edge_mask, dim_size: Tuple = None):
+    def forward(self, data, node_mask, edge_mask, dim_size: Tuple = None):
+        device = data.x.device
+        n_centroids, n_graphs, repeats = dim_size
+        batch, edge_index, edge_attr = data.batch, data.edge_index, data.edge_attr
+        x = self.atom_encoder(data)
+
+        batch = batch.repeat(repeats * n_centroids) + \
+                torch.arange(repeats * n_centroids, device=device).repeat_interleave(
+                    data.num_nodes) * data.num_graphs
+
+        if self.training:
+            x = x.repeat(repeats, n_centroids, 1, 1).reshape(-1, x.shape[-1])
+        else:
+            edge_index = edge_index.repeat(1, repeats * n_centroids) + \
+                         torch.arange(repeats * n_centroids, device=device).repeat_interleave(
+                             data.num_edges) * data.num_nodes
+            if edge_attr is not None:
+                nnz_edge_idx = edge_mask.squeeze(-1).nonzero()[..., -1]
+                edge_attr = edge_attr[nnz_edge_idx]
+            else:
+                edge_attr = None
+            nnz_edge_idx = edge_mask.reshape(-1).nonzero().squeeze()
+            edge_index = edge_index[:, nnz_edge_idx]
+            edge_mask = edge_mask.reshape(-1)[nnz_edge_idx][..., None]
+
+            # sparsify the nodes
+            nnz_x_idx = node_mask.squeeze(-1).nonzero()[..., -1]
+            x = x[nnz_x_idx, :]
+
+            nnz_x_idx = node_mask.reshape(-1).nonzero().squeeze()
+            node_mask = node_mask.reshape(-1)[nnz_x_idx][..., None]
+            batch = batch[nnz_x_idx]
+
+            edge_index, edge_attr, subg_edge_mask = subgraph(nnz_x_idx,
+                                                             edge_index,
+                                                             edge_attr,
+                                                             relabel_nodes=True,
+                                                             num_nodes=data.num_nodes * repeats * n_centroids,
+                                                             return_edge_mask=True)
+
+            edge_mask = edge_mask[subg_edge_mask]
+
         for i, conv in enumerate(self.convs):
             x_new = conv(x, edge_index, edge_attr, edge_mask)
             if self.supports_norm_batch:
@@ -111,7 +156,6 @@ class GNNMultiEdgeset(torch.nn.Module):
                 (scatter_sum(node_mask.detach(), single_batch, dim=2) + 1.e-7)
             x = x.permute(0, 2, 1, 3).reshape(-1, x.shape[-1])
         else:
-            n_centroids, n_graphs, repeats = dim_size
             # (repeats * n_centroids * n_graphs) * F
             x = scatter_sum(x * node_mask, batch, dim=0, dim_size=np.prod(dim_size).item()) / \
                 (scatter_sum(node_mask.detach(), batch, dim=0, dim_size=np.prod(dim_size).item()) + 1.e-7)

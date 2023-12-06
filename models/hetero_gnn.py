@@ -125,7 +125,8 @@ class HeteroGINEConv(MessagePassing):
 class HeteroGNN(torch.nn.Module):
     def __init__(self,
                  conv,
-                 edge_encoder,
+                 atom_encoder_handler,
+                 bond_encoder_handler,
                  hid_dim,
                  num_conv_layers,
                  num_mlp_layers,
@@ -137,6 +138,7 @@ class HeteroGNN(torch.nn.Module):
                  parallel):
         super(HeteroGNN, self).__init__()
 
+        self.atom_encoder = atom_encoder_handler()
         self.dropout = dropout
         self.num_layers = num_conv_layers
         self.use_res = use_res
@@ -154,21 +156,23 @@ class HeteroGNN(torch.nn.Module):
             self.gnn_convs.append(
                 HeteroConv({
                     ('base', 'to', 'base'):
-                        (f_conv(in_dim, hid_dim, edge_encoder, num_mlp_layers, norm, activation), b2b),
+                        (f_conv(in_dim, hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2b),
                     ('base', 'to', 'centroid'):
-                        (f_conv(in_dim, hid_dim, edge_encoder, num_mlp_layers, norm, activation), b2c),
+                        (f_conv(in_dim, hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2c),
                     ('centroid', 'to', 'centroid'):
-                        (f_conv(in_dim, hid_dim, edge_encoder, num_mlp_layers, norm, activation), c2c),
+                        (f_conv(in_dim, hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2c),
                     ('centroid', 'to', 'base'):
-                        (f_conv(in_dim, hid_dim, edge_encoder, num_mlp_layers, norm, activation), c2b),
+                        (f_conv(in_dim, hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2b),
                 },
                     aggr=aggr))
 
-    def forward(self, data, has_edge_attr):
-        x_dict = data.x_dict
+    def forward(self, old_data, data, has_edge_attr):
         edge_index_dict, edge_weight_dict = data.edge_index_dict, data.edge_weight_dict
         edge_attr_dict = data.edge_attr_dict if has_edge_attr else {}
         batch_dict = data.batch_dict
+        x_dict = data.x_dict
+        repeats = batch_dict['base'].shape[0] // x_dict['base'].shape[0]
+        x_dict['base'] = self.atom_encoder(old_data).repeat(repeats, 1)
 
         for i in range(self.num_layers):
             h1 = x_dict

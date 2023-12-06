@@ -11,16 +11,20 @@ from samplers.get_sampler import get_sampler
 
 def get_model(args, device):
     # get atom encoder and bond encoder
-    atom_encoder = get_atom_encoder(args.encoder.atom,
-                                    args.hetero.hidden,
-                                    DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['node'])
-    bond_encoder = get_bond_encoder(args.encoder.bond, args.hetero.hidden)
+    def get_atom_encoder_handler():
+        return get_atom_encoder(args.encoder.atom,
+                                args.hetero.hidden,
+                                DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['node'])
+
+    def get_bond_encoder_handler():
+        return get_bond_encoder(args.encoder.bond, args.hetero.hidden)
 
     # scorer model
     if hasattr(args, 'scorer_model') and args.scorer_model is not None:
         scorer_model = ScorerGNN(
             conv=args.scorer_model.conv,
-            bond_encoder=bond_encoder,
+            atom_encoder_handler=get_atom_encoder_handler,
+            bond_encoder_handler=get_bond_encoder_handler,
             in_feature=args.hetero.hidden,
             hidden=args.scorer_model.hidden,
             num_conv_layers=args.scorer_model.num_conv_layers,
@@ -38,7 +42,8 @@ def get_model(args, device):
     if hasattr(args, 'base2centroid') and args.base2centroid is not None:
         base2centroid_model = GNNMultiEdgeset(
             conv=args.base2centroid.conv,
-            edge_encoder=bond_encoder,
+            atom_encoder_handler=get_atom_encoder_handler,
+            bond_encoder_handler=get_bond_encoder_handler,
             hidden=args.hetero.hidden,
             num_conv_layers=args.base2centroid.num_conv_layers,
             num_mlp_layers=args.base2centroid.num_mlp_layers,
@@ -54,7 +59,8 @@ def get_model(args, device):
     if hasattr(args, 'hetero') and args.hetero is not None:
         hetero_mpnn = HeteroGNN(
             conv=args.hetero.conv,
-            edge_encoder=bond_encoder,
+            atom_encoder_handler=get_atom_encoder_handler,
+            bond_encoder_handler=get_bond_encoder_handler,
             hid_dim=args.hetero.hidden,
             num_conv_layers=args.hetero.num_conv_layers,
             num_mlp_layers=args.hetero.num_mlp_layers,
@@ -92,8 +98,6 @@ def get_model(args, device):
             norm=None)
 
         hybrid_model = HybridModel(
-            atom_encoder=atom_encoder,
-            bond_encoder=bond_encoder,
             scorer_model=scorer_model,
             base2centroid_model=base2centroid_model,
             sampler=sampler,
