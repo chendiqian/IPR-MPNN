@@ -35,14 +35,10 @@ def log1mexp(x):
     # Source: https://github.com/wouterkool/estimating-gradients-without-replacement/blob/9d8bf8b/bernoulli/gumbel.py#L7-L11
     # Computes log(1-exp(-|x|))
     # See https://cran.r-project.org/web/packages/Rmpfr/vignettes/log1mexp-note.pdf
-    x = -x.abs()
-    x = torch.where(
-        x > -0.6931471805599453094,
-        torch.log(-torch.expm1(x)),
-        torch.log1p(-torch.exp(x)),
-    )
-
-    return x
+    minus_x = -x.abs()
+    rel_x = torch.where(minus_x == 0., -1.e-10, minus_x)
+    new_x = torch.where(rel_x > -0.6931471805599453094, torch.log(-torch.expm1(rel_x)), torch.log1p(-torch.exp(rel_x)))
+    return new_x
 
 
 def levelOrder(beta):
