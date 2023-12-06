@@ -157,6 +157,7 @@ class HybridModel(torch.nn.Module):
         # dumb edge index
         idx = np.hstack([np.vstack(np.triu_indices(n_centroids, k=1)),
                          np.vstack(np.tril_indices(n_centroids, k=-1))])
+        idx = torch.from_numpy(idx).to(device)
 
         new_data = HeteroData(
             base={'x': x.repeat(repeats, 1),
@@ -189,7 +190,8 @@ class HybridModel(torch.nn.Module):
             # 'edge_weight': intra_edge_weights.permute(0, 2, 1).reshape(-1)
             # }
             centroid__to__centroid={
-                'edge_index': torch.from_numpy(idx).to(device),
+                'edge_index': idx.repeat(1, data.num_graphs * repeats) +
+                              (torch.arange(data.num_graphs * repeats, device=device) * n_centroids).repeat_interleave(idx.shape[1]),
                 'edge_attr': None,
                 'edge_weight': None
             }
