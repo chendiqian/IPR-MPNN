@@ -52,7 +52,6 @@ class HybridModel(torch.nn.Module):
         self.auxloss = partial(get_auxloss,
                                auxloss_dict=auxloss_dict) if auxloss_dict is not None else None
 
-
     def forward(self, data):
         x = self.atom_encoder(data)
         device = x.device
@@ -137,21 +136,27 @@ class HybridModel(torch.nn.Module):
         dst = dst.t().reshape(-1)
 
         # edges intra super nodes, assume graphs are undirected
+        # todo: try this when converged
+        # todo: UnsafeViewBackward0, probably comes from to_undirected
+        # idx = np.hstack([np.vstack(np.triu_indices(n_centroids, k=1)),
+        #                  np.vstack(np.diag_indices(n_centroids))])
+
+        # cumsum_nedges = data._slice_dict['edge_index'].to(device)
+        # nedges_list = cumsum_nedges[1:] - cumsum_nedges[:-1]
+        # intra_num_edges = scatter_sum((node_mask[:, idx[0], :, 0][:, :, data.edge_index[0]] *
+        #                          node_mask[:, idx[1], :, 0][:, :, data.edge_index[1]]),
+        #                         torch.arange(data.num_graphs, device=device).repeat_interleave(nedges_list), dim=2)
+        # intra_num_edges[:, -n_centroids:, :] = intra_num_edges[:, -n_centroids:, :] / 2
+        #
+        # idx, intra_edge_weights = to_undirected(torch.from_numpy(idx).to(device),
+        #                                         intra_num_edges.permute(1, 0, 2),
+        #                                         reduce='mean')
+        # # after: repeats x n_centroids^2 x n_graphs
+        # intra_edge_weights = intra_edge_weights.permute(1, 0, 2) / (intra_edge_weights.detach().abs().max() + 1.e-7)
+
+        # dumb edge index
         idx = np.hstack([np.vstack(np.triu_indices(n_centroids, k=1)),
-                         np.vstack(np.diag_indices(n_centroids))])
-
-        cumsum_nedges = data._slice_dict['edge_index'].to(device)
-        nedges_list = cumsum_nedges[1:] - cumsum_nedges[:-1]
-        intra_num_edges = scatter_sum((node_mask[:, idx[0], :, 0][:, :, data.edge_index[0]] *
-                                 node_mask[:, idx[1], :, 0][:, :, data.edge_index[1]]),
-                                torch.arange(data.num_graphs, device=device).repeat_interleave(nedges_list), dim=2)
-        intra_num_edges[:, -n_centroids:, :] = intra_num_edges[:, -n_centroids:, :] / 2
-
-        idx, intra_edge_weights = to_undirected(torch.from_numpy(idx).to(device),
-                                                intra_num_edges.permute(1, 0, 2),
-                                                reduce='mean')
-        # after: repeats x n_centroids^2 x n_graphs
-        intra_edge_weights = intra_edge_weights.permute(1, 0, 2) / (intra_edge_weights.detach().abs().max() + 1.e-7)
+                         np.vstack(np.tril_indices(n_centroids, k=-1))])
 
         new_data = HeteroData(
             base={'x': x.repeat(repeats, 1),
@@ -160,25 +165,39 @@ class HybridModel(torch.nn.Module):
             centroid={'x': centroid_x,
                       'batch': torch.arange(repeats * data.num_graphs, device=device).repeat_interleave(n_centroids)},
 
-            base__to__base={'edge_index': data.edge_index.repeat(1, repeats) + \
-                                          torch.arange(repeats, device=device).repeat_interleave(data.num_edges) * data.num_nodes,
-                            'edge_attr': (data.edge_attr.repeat(repeats) if data.edge_attr.dim() == 1 else
-                                          data.edge_attr.repeat(repeats, 1)) if data.edge_attr is not None else None,
-                            'edge_weight': None},
-            base__to__centroid={'edge_index': torch.vstack([src, dst]),
-                                'edge_attr': None,
-                                'edge_weight': node_mask.squeeze(-1).permute(0, 2, 1).reshape(-1)},
-            centroid__to__base={'edge_index': torch.vstack([dst, src]),
-                                'edge_attr': None,
-                                'edge_weight': node_mask.squeeze(-1).permute(0, 2, 1).reshape(-1)},
-            centroid__to__centroid={'edge_index': idx.repeat(1, data.num_graphs * repeats) + \
-                                                  (torch.arange(data.num_graphs * repeats,
-                                                                device=device) * n_centroids).repeat_interleave(idx.shape[1]),
-                                    'edge_attr': None,
-                                    'edge_weight': intra_edge_weights.permute(0, 2, 1).reshape(-1)}
+            base__to__base={
+                'edge_index': data.edge_index.repeat(1, repeats) +
+                              torch.arange(repeats, device=device).repeat_interleave(data.num_edges) * data.num_nodes,
+                'edge_attr': (data.edge_attr.repeat(repeats) if data.edge_attr.dim() == 1 else
+                              data.edge_attr.repeat(repeats, 1)) if data.edge_attr is not None else None,
+                'edge_weight': None
+            },
+            base__to__centroid={
+                'edge_index': torch.vstack([src, dst]),
+                'edge_attr': None,
+                'edge_weight': node_mask.squeeze(-1).permute(0, 2, 1).reshape(-1)
+            },
+            centroid__to__base={
+                'edge_index': torch.vstack([dst, src]),
+                'edge_attr': None,
+                'edge_weight': node_mask.squeeze(-1).permute(0, 2, 1).reshape(-1)
+            },
+            # centroid__to__centroid={
+            # 'edge_index': idx.repeat(1, data.num_graphs * repeats) +
+            # (torch.arange(data.num_graphs * repeats, device=device) * n_centroids).repeat_interleave(idx.shape[1]),
+            # 'edge_attr': None,
+            # 'edge_weight': intra_edge_weights.permute(0, 2, 1).reshape(-1)
+            # }
+            centroid__to__centroid={
+                'edge_index': torch.from_numpy(idx).to(device),
+                'edge_attr': None,
+                'edge_weight': None
+            }
         )
 
-        base_embedding, centroid_embedding = self.hetero_gnn(new_data, hasattr(data, 'edge_attr') and data.edge_attr is not None)
+        base_embedding, centroid_embedding = self.hetero_gnn(
+            new_data,
+            hasattr(data, 'edge_attr') and data.edge_attr is not None)
 
         if self.target == 'base':
             node_embedding = base_embedding.reshape(repeats, -1, base_embedding.shape[-1])
