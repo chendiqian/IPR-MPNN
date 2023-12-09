@@ -120,16 +120,17 @@ class LapPENodeEncoder(torch.nn.Module):
                              "set config 'posenc_LapPE.enable' to True")
         pos_enc = batch.EigVecs
 
-        # if self.training:
-        #     sign_flip = torch.rand(pos_enc.size(1), device=pos_enc.device)
-        #     sign_flip[sign_flip >= 0.5] = 1.0
-        #     sign_flip[sign_flip < 0.5] = -1.0
-        #     pos_enc = pos_enc * sign_flip.unsqueeze(0)
+        if self.training:
+            sign_flip = torch.rand(pos_enc.size(1), device=pos_enc.device)
+            sign_flip[sign_flip >= 0.5] = 1.0
+            sign_flip[sign_flip < 0.5] = -1.0
+            pos_enc = pos_enc * sign_flip.unsqueeze(0)
 
         empty_mask = torch.isnan(pos_enc)  # (Num nodes) x (Num Eigenvectors)
 
         pos_enc[empty_mask] = 0  # (Num nodes) x (Num Eigenvectors)
-        pos_enc = (self.pe_encoder(pos_enc) + self.pe_encoder(-pos_enc)) * 0.5  # (Num nodes) x dim_pe
+        # pos_enc = (self.pe_encoder(eigvecs) + self.pe_encoder(-eigvecs)) * 0.5  # (Num nodes) x dim_pe
+        pos_enc = self.pe_encoder(pos_enc)
 
         # Expand node features if needed
         if self.expand_x:
