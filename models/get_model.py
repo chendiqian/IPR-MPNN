@@ -14,7 +14,9 @@ def get_model(args, device):
     def get_atom_encoder_handler():
         return get_atom_encoder(args.encoder.atom,
                                 args.hetero.hidden,
-                                DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['node'])
+                                DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['node'],
+                                args.encoder.lap if hasattr(args.encoder, 'lap') else None,
+                                args.encoder.rwse if hasattr(args.encoder, 'rwse') else None,)
 
     def get_bond_encoder_handler():
         return get_bond_encoder(args.encoder.bond, args.hetero.hidden)
