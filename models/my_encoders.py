@@ -1,6 +1,7 @@
 import torch
 from ml_collections import ConfigDict
 from torch_geometric.nn import MLP
+from ogb.graphproppred.mol_encoder import AtomEncoder as OGB_AtomEncoder, BondEncoder as OGB_BondEncoder
 
 
 class ZINCBondEncoder(torch.nn.Module):
@@ -30,6 +31,15 @@ class LinearEncocer(torch.nn.Module):
     def __init__(self, in_feature, hidden):
         super(LinearEncocer, self).__init__()
         self.embedding = torch.nn.Linear(in_feature, hidden)
+
+    def forward(self, data):
+        return self.embedding(data.x)
+
+
+class MyOGBAtomEncoder(torch.nn.Module):
+    def __init__(self, hidden):
+        super(MyOGBAtomEncoder, self).__init__()
+        self.embedding = OGB_AtomEncoder(hidden)
 
     def forward(self, data):
         return self.embedding(data.x)
@@ -228,6 +238,8 @@ def get_atom_encoder(atom_encoder: str,
     else:
         if atom_encoder == 'zinc':
             return ZINCAtomEncoder(hidden)
+        elif atom_encoder == 'ogb':
+            return MyOGBAtomEncoder(hidden)
         elif atom_encoder == 'linear':
             return LinearEncocer(in_feature, hidden)
         else:
@@ -237,6 +249,8 @@ def get_atom_encoder(atom_encoder: str,
 def get_bond_encoder(bond_encoder: str, hidden: int):
     if bond_encoder == 'zinc':
         return ZINCBondEncoder(hidden)
+    elif bond_encoder == 'ogb':
+        return OGB_BondEncoder(hidden)
     elif bond_encoder is None:
         return None
     else:
