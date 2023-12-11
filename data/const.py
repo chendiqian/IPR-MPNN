@@ -161,4 +161,5 @@ SCHEDULER_MODE = {
     'mse': 'min',
     'rocauc': 'max',
     'rmse': 'min',
+    'ap': 'max',
 }
