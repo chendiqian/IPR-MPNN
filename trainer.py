@@ -133,7 +133,7 @@ class Plotter:
 
                 fig, axs = plt.subplots(ncols=n_samples * n_ensemble + 1,
                                         figsize=(n_centroids * n_samples * n_ensemble * 1.2, nnodes),
-                                        gridspec_kw=dict(width_ratios=[1.] * n_samples * n_ensemble + [0.6]))
+                                        gridspec_kw=dict(width_ratios=[1.] * n_samples * n_ensemble + [0.3]))
 
                 for ens in range(n_ensemble):
                     for ns in range(n_samples):
@@ -141,7 +141,8 @@ class Plotter:
                         mask = node_mask[ns, :, :, ens]
 
                         axs[ens * n_samples + ns].set_axis_off()
-                        sns.heatmap(mask, cbar=False, vmin=vmin, vmax=vmax, ax=axs[ens * n_samples + ns], linewidths=0.1, linecolor='yellow')
+                        sns.heatmap(mask, cbar=False, vmin=vmin, vmax=vmax, ax=axs[ens * n_samples + ns],
+                                    linewidths=0.1, linecolor='yellow')
                         axs[ens * n_samples + ns].title.set_text(f'ens{ens}, ns{ns}')
 
                 fig.colorbar(axs[0].collections[0], cax=axs[-1])
@@ -155,7 +156,7 @@ class Plotter:
 
                 wandb.log({"plot_mask": wandb.Image(fig)}, step=epoch)
 
-            # plot mask
+            # plot score
             if self.plot_score:
                 nnodes, n_centroids, n_ensemble = scores.shape
 
@@ -164,7 +165,7 @@ class Plotter:
 
                 fig, axs = plt.subplots(ncols=n_ensemble + 1,
                                         figsize=(n_centroids * n_ensemble * 1.2, nnodes),
-                                        gridspec_kw=dict(width_ratios=[1.] * n_ensemble + [0.6]))
+                                        gridspec_kw=dict(width_ratios=[1.] * n_ensemble + [0.3]))
 
                 for ens in range(n_ensemble):
                     # nnodes, n_centroids
@@ -177,11 +178,10 @@ class Plotter:
 
                 fig.colorbar(axs[0].collections[0], cax=axs[-1])
 
+                wandb_obj = fig
                 if self.plot_folder is not None:
-                    fig.savefig(
-                        os.path.join(self.plot_folder,
-                                     f'scores_epoch{epoch}_{phase}.png'),
-                        bbox_inches='tight')
+                    path = os.path.join(self.plot_folder, f'scores_epoch{epoch}_{phase}.png')
+                    fig.savefig(path, bbox_inches='tight')
+                    wandb_obj = path
+                wandb.log({"plot_score": wandb.Image(wandb_obj)}, step=epoch)
                 plt.close(fig)
-
-                wandb.log({"plot_score": wandb.Image(fig)}, step=epoch)
