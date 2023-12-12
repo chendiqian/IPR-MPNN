@@ -133,7 +133,7 @@ class Plotter:
 
                 fig, axs = plt.subplots(ncols=n_samples * n_ensemble + 1,
                                         figsize=(n_centroids * n_samples * n_ensemble * 1.2, nnodes),
-                                        gridspec_kw=dict(width_ratios=[1.] * n_samples * n_ensemble + [0.2]))
+                                        gridspec_kw=dict(width_ratios=[1.] * n_samples * n_ensemble + [0.6]))
 
                 for ens in range(n_ensemble):
                     for ns in range(n_samples):
@@ -164,7 +164,7 @@ class Plotter:
 
                 fig, axs = plt.subplots(ncols=n_ensemble + 1,
                                         figsize=(n_centroids * n_ensemble * 1.2, nnodes),
-                                        gridspec_kw=dict(width_ratios=[1.] * n_ensemble + [0.2]))
+                                        gridspec_kw=dict(width_ratios=[1.] * n_ensemble + [0.6]))
 
                 for ens in range(n_ensemble):
                     # nnodes, n_centroids
