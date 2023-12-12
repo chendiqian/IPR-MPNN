@@ -178,10 +178,14 @@ class Plotter:
 
                 fig.colorbar(axs[0].collections[0], cax=axs[-1])
 
-                wandb_obj = fig
                 if self.plot_folder is not None:
                     path = os.path.join(self.plot_folder, f'scores_epoch{epoch}_{phase}.png')
                     fig.savefig(path, bbox_inches='tight')
-                    wandb_obj = path
-                wandb.log({"plot_score": wandb.Image(wandb_obj)}, step=epoch)
+                    wandb.log({"plot_score": wandb.Image(path)}, step=epoch)
+                else:
+                    tmp_path = f'scores_epoch{epoch}_{phase}.png'
+                    fig.savefig(tmp_path, bbox_inches='tight')
+                    wandb.log({"plot_score": wandb.Image(tmp_path)}, step=epoch)
+                    os.unlink(tmp_path)
+
                 plt.close(fig)
