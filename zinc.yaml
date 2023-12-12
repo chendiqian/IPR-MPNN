@@ -1,6 +1,6 @@
 wandb:
-    use_wandb: true
-    project: zinc_tmp
+    use_wandb: false
+    project: zinc
     entity: chendiqian
 #    name: run1
 
@@ -11,7 +11,7 @@ data_path: ./datasets
 batch_size: 128
 lr: 1.e-3
 weight_decay: 0.
-debug: false
+debug: true
 num_runs: 3
 max_epoch: 1000
 min_epoch: 300
@@ -21,14 +21,25 @@ patience: 100
 encoder:
     atom: zinc
     bond: zinc
+    rwse:
+        kernel: 20
+        layers: 2
+        dim_pe: 32
+        raw_norm_type: 'BatchNorm'
+
+    lap:
+        max_freqs: 4
+        dim_pe: 32
+        layers: 1
+        raw_norm_type: null
 
 #scorer_model: none
 scorer_model:
     conv: gine
-    hidden: 128
-    num_conv_layers: 2
-    num_mlp_layers: 3
-    norm: none
+    hidden: 320
+    num_conv_layers: 4
+    num_mlp_layers: 2
+    norm: graph_norm
     activation: gelu
     dropout: 0.
     num_centroids: 2
@@ -36,16 +47,16 @@ scorer_model:
 # extract the base nodes to super nodes
 base2centroid:
     conv: gine
-    num_conv_layers: 3
+    num_conv_layers: 4
     num_mlp_layers: 1
-    norm: graph_norm
+    norm: batch_norm
     activation: gelu
     dropout: 0.
 
 # the hetero, hierarchical GNN
 hetero:
     conv: gine
-    hidden: 256
+    hidden: 192
     num_conv_layers: 5
     num_mlp_layers: 2
     norm: batch_norm
@@ -65,13 +76,17 @@ sampler:
 
 hybrid_model:
     target: base
-    inter_pred_layer: 1
-    intra_pred_layer: 2
+    inter_pred_layer: 3
+    intra_pred_layer: 1
     inter_ensemble_pool: mean
     intra_graph_pool: mean
-
-plots:
-    plot_every: 20
+#
+#auxloss:
+#    soft_empty: 0.01
+#    hard_empty: 1.e-5
+#
+#plots:
+#    plot_every: 1
 #    plot_folder: './plots'
-    mask: true
-    score: true
+#    mask: true
+#    score: true
