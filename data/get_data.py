@@ -4,21 +4,21 @@ from functools import partial
 from typing import Union, List, Optional
 
 from ml_collections import ConfigDict
-from torch_geometric.datasets import ZINC, WebKB
+from torch_geometric.datasets import ZINC, WebKB, LRGBDataset
 from torch_geometric.loader import DataLoader as PyGDataLoader
-from torch_geometric.transforms import Compose, AddRandomWalkPE, AddLaplacianEigenvectorPE, ToUndirected, AddRemainingSelfLoops
+from torch_geometric.transforms import (Compose,
+                                        AddRandomWalkPE,
+                                        AddLaplacianEigenvectorPE,
+                                        ToUndirected,
+                                        AddRemainingSelfLoops)
 from data.utils import AttributedDataLoader
-
-from data.custom_datasets.peptides_func import PeptidesFunctionalDataset
-from data.custom_datasets.peptides_struct import PeptidesStructuralDataset
 
 
 NUM_WORKERS = 1
 
 DATASET = (ZINC,
            WebKB,
-           PeptidesFunctionalDataset,
-           PeptidesStructuralDataset)
+           LRGBDataset)
 
 # sort keys, some pre_transform should be executed first
 PRETRANSFORM_PRIORITY = {
@@ -27,6 +27,7 @@ PRETRANSFORM_PRIORITY = {
     AddRandomWalkPE: 98,
     AddLaplacianEigenvectorPE: 98,
 }
+
 
 def get_additional_path(args: Union[Namespace, ConfigDict]):
     extra_path = ''
@@ -72,10 +73,8 @@ def get_data(args: Union[Namespace, ConfigDict], force_subset):
     elif args.dataset.lower().startswith('hetero'):
         train_set, val_set, test_set, std = get_heterophily(args, force_subset)
         task = 'node'
-    elif args.dataset.lower().startswith('peptides-struct'):
-        train_set, val_set, test_set, std = get_peptides(args, 'struct', force_subset)
-    elif args.dataset.lower().startswith('peptides-func'):
-        train_set, val_set, test_set, std = get_peptides(args, 'func', force_subset)
+    elif args.dataset.lower().startswith('peptides'):
+        train_set, val_set, test_set, std = get_lrgb(args, force_subset)
     else:
         raise ValueError
 
@@ -180,7 +179,7 @@ def get_heterophily(args, force_subset):
     return train_set, val_set, test_set, None
 
 
-def get_peptides(args: Union[Namespace, ConfigDict], post_fix, force_subset):
+def get_lrgb(args: Union[Namespace, ConfigDict], force_subset):
     datapath = args.data_path
     extra_path = get_additional_path(args)
     if extra_path is not None:
@@ -188,16 +187,12 @@ def get_peptides(args: Union[Namespace, ConfigDict], post_fix, force_subset):
     pre_transform = get_pretransform(args, extra_pretransforms=None)
     transform = get_transform(args)
 
-    if post_fix == 'struct':
-        dataset = PeptidesStructuralDataset(root=datapath, transform=transform, pre_transform=pre_transform)
-    elif post_fix == 'func':
-        dataset = PeptidesFunctionalDataset(root=datapath, transform=transform, pre_transform=pre_transform)
-    else:
-        raise ValueError(f"Unknown peptides set: {post_fix}")
-
-    split_idx = dataset.get_idx_split()
-
-    train_set, val_set, test_set = dataset[split_idx['train']], dataset[split_idx['val']], dataset[split_idx['test']]
+    train_set = LRGBDataset(root=datapath, name=args.dataset.lower(), split='train',
+                            transform=transform, pre_transform=pre_transform)
+    val_set = LRGBDataset(root=datapath, name=args.dataset.lower(), split='val',
+                          transform=transform, pre_transform=pre_transform)
+    test_set = LRGBDataset(root=datapath, name=args.dataset.lower(), split='test',
+                           transform=transform, pre_transform=pre_transform)
 
     if args.debug:
         train_set = train_set[:16]
