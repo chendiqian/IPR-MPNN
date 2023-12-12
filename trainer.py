@@ -1,9 +1,12 @@
-from typing import Union
 import os
-import torch
+from re import split as re_split
+from datetime import datetime
+from typing import Union
+
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
+import seaborn as sns
+import torch
 
 from data.metrics import Evaluator
 
@@ -183,7 +186,7 @@ class Plotter:
                     fig.savefig(path, bbox_inches='tight')
                     wandb.log({"plot_score": wandb.Image(path)}, step=epoch)
                 else:
-                    tmp_path = f'scores_epoch{epoch}_{phase}.png'
+                    tmp_path = f'sc_{epoch}_{phase}_{"".join(re_split(r"[ :.-]", str(datetime.now())))}.png'
                     fig.savefig(tmp_path, bbox_inches='tight')
                     wandb.log({"plot_score": wandb.Image(tmp_path)}, step=epoch)
                     os.unlink(tmp_path)

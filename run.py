@@ -1,6 +1,7 @@
 import argparse
 import copy
 import os
+from re import split as re_split
 from datetime import datetime
 import logging
 
@@ -34,7 +35,7 @@ def main(args, wandb):
     if args.ckpt:
         if not os.path.isdir('logs'):
             os.mkdir('logs')
-        exp_time = "".join(str(datetime.now()).split(":"))
+        exp_time = "".join(re_split(r'[ :.-]', str(datetime.now())))
         log_folder_name = f'logs/{args.dataset}_{exp_time}'
         os.mkdir(log_folder_name)
         with open(os.path.join(log_folder_name, 'config.yaml'), 'w') as outfile:
