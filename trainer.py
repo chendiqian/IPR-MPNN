@@ -1,12 +1,16 @@
 import os
-from re import split as re_split
+import warnings
 from datetime import datetime
+from re import split as re_split
 from typing import Union
 
 import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 import seaborn as sns
 import torch
+from torch_geometric.data import Batch
+from torch_geometric.utils import to_networkx
 
 from data.metrics import Evaluator
 
@@ -107,6 +111,7 @@ class Plotter:
         self.plot_every = plot_args.plot_every
         self.plot_mask = hasattr(plot_args, 'mask') and plot_args.mask
         self.plot_score = hasattr(plot_args, 'score') and plot_args.score
+        self.plot_graph = hasattr(plot_args, 'graph') and plot_args.graph
 
     def __call__(self, epoch, train_loader, val_loader, model, wandb):
         if epoch % self.plot_every == 0:
@@ -121,8 +126,10 @@ class Plotter:
         train_data = next(iter(train_loader.loader))
         val_data = next(iter(val_loader.loader))
 
-        data_dict = {'train': train_data.to(self.device),
-                     'val': val_data.to(self.device)}
+        data_dict = {
+            # 'train': train_data.to(self.device),
+            'val': val_data.to(self.device)
+        }
 
         for phase, data in data_dict.items():
             _, node_mask, scores, _ = model(data)
@@ -192,3 +199,39 @@ class Plotter:
                     os.unlink(tmp_path)
 
                 plt.close(fig)
+
+            if self.plot_graph:
+                n_samples, nnodes, n_centroids, n_ensemble = node_mask.shape
+                if node_mask.sum(2).max() == 1:
+                    # n_samples, nnodes, n_ensemble
+                    mask = np.argmax(node_mask, axis=2)
+                else:
+                    warnings.warn("More than one cluster per node")
+                    return
+
+                graphs = Batch.to_data_list(data)
+                g = graphs[0]
+                g_nx = to_networkx(g, to_undirected=True)
+
+                fig, axs = plt.subplots(ncols=n_samples,
+                                        nrows=n_ensemble,
+                                        figsize=(n_samples * 5, n_ensemble * 5),
+                                        squeeze=False)
+
+                for ens in range(n_ensemble):
+                    for ns in range(n_samples):
+                        axs[ens, ns].set_axis_off()
+                        nx.draw_kamada_kawai(g_nx,
+                                             node_color=mask[ns, :, ens],
+                                             ax=axs[ens, ns],
+                                             node_size=4500 // g.num_nodes)  # empirical number
+                        axs[ens, ns].title.set_text(f'ens{ens}, ns{ns}')
+
+                if self.plot_folder is not None:
+                    fig.savefig(
+                        os.path.join(self.plot_folder,
+                                     f'graphs_epoch{epoch}_{phase}.png'),
+                        bbox_inches='tight')
+                plt.close(fig)
+
+                wandb.log({"plot_graph": wandb.Image(fig)}, step=epoch)
