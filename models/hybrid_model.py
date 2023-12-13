@@ -51,6 +51,12 @@ class HybridModel(torch.nn.Module):
     def forward(self, data):
         device = data.x.device
 
+        cumsum_nnodes = data._slice_dict['x']
+        nnodes_list = cumsum_nnodes[1:] - cumsum_nnodes[:-1]
+        if isinstance(self.sampler, IMLESampler):
+            self.sampler.nnodes_list = nnodes_list.tolist()
+        nnodes_list = nnodes_list.to(device)
+
         # get scores and samples
         scores = self.scorer_model(data)
         node_mask, marginal = self.sampler(scores) if self.training else self.sampler.validation(scores)
@@ -76,8 +82,6 @@ class HybridModel(torch.nn.Module):
         # data is constructs like
         # repeat1: [g1: (to_centroid1, to_centroid2, ...), g2: (to_centroid1, to_centroid2, ...)],
         # repeat2: [g1: (to_centroid1, to_centroid2, ...), g2: (to_centroid1, to_centroid2, ...)]
-        cumsum_nnodes = data._slice_dict['x'].to(device)
-        nnodes_list = cumsum_nnodes[1:] - cumsum_nnodes[:-1]
 
         # low to high hierarchy
         src = torch.arange(data.num_nodes * repeats, device=device).repeat_interleave(n_centroids)

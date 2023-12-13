@@ -34,6 +34,8 @@ class IMLESampler(nn.Module):
 
         self.val_forward = imle_val_scheme
 
+        self.nnodes_list = None  # for potential usage
+
 
     @torch.no_grad()
     def sample(self, logits: torch.Tensor):
