@@ -52,7 +52,8 @@ class FeatureEncoder(torch.nn.Module):
                  hidden,
                  type_encoder: str,
                  lap_encoder: ConfigDict = None,
-                 rw_encoder: ConfigDict = None):
+                 rw_encoder: ConfigDict = None,
+                 partition_encoder: ConfigDict = None):
         super(FeatureEncoder, self).__init__()
 
         lin_hidden = hidden
@@ -60,21 +61,34 @@ class FeatureEncoder(torch.nn.Module):
             lin_hidden -= lap_encoder.dim_pe
         if rw_encoder is not None:
             lin_hidden -= rw_encoder.dim_pe
+        if partition_encoder is not None:
+            lin_hidden -= partition_encoder.dim_pe
+
+        assert lin_hidden > 0
 
         self.linear_embed = get_atom_encoder(type_encoder, lin_hidden, dim_in)
 
         if lap_encoder is not None:
             self.lap_encoder = LapPENodeEncoder(hidden,
-                                                hidden - rw_encoder.dim_pe if rw_encoder is not None else hidden,
+                                                hidden - (rw_encoder.dim_pe if rw_encoder is not None else 0)
+                                                - (partition_encoder.dim_pe if partition_encoder is not None else 0),
                                                 lap_encoder,
                                                 expand_x=False)
         else:
             self.lap_encoder = None
 
         if rw_encoder is not None:
-            self.rw_encoder = RWSENodeEncoder(hidden, hidden, rw_encoder, expand_x=False)
+            self.rw_encoder = RWSENodeEncoder(hidden,
+                                              hidden - (partition_encoder.dim_pe if partition_encoder is not None else 0),
+                                              rw_encoder,
+                                              expand_x=False)
         else:
             self.rw_encoder = None
+
+        if partition_encoder is not None:
+            self.part_encoder = PartitionInfoEncoder(hidden, hidden, partition_encoder.dim_pe, expand_x=False)
+        else:
+            self.part_encoder = None
 
     def forward(self, data):
         x = self.linear_embed(data)
@@ -82,6 +96,8 @@ class FeatureEncoder(torch.nn.Module):
             x = self.lap_encoder(x, data)
         if self.rw_encoder is not None:
             x = self.rw_encoder(x, data)
+        if self.part_encoder is not None:
+            x = self.part_encoder(x, data)
         return x
 
 
@@ -153,7 +169,7 @@ class LapPENodeEncoder(torch.nn.Module):
         return x
 
 
-class KernelPENodeEncoder(torch.nn.Module):
+class RWSENodeEncoder(torch.nn.Module):
     # https://github.com/rampasek/GraphGPS/blob/main/graphgps/encoder/kernel_pos_encoder.py
     """Configurable kernel-based Positional Encoding node encoder.
     The choice of which kernel-based statistics to use is configurable through
@@ -169,7 +185,7 @@ class KernelPENodeEncoder(torch.nn.Module):
         expand_x: Expand node features `x` from dim_in to (dim_emb - dim_pe)
     """
 
-    kernel_type = None  # Instantiated type of the KernelPE, e.g. RWSE
+    kernel_type = 'RWSE'  # Instantiated type of the KernelPE, e.g. RWSE
 
     def __init__(self, dim_in, dim_emb, pecfg, expand_x=True):
         super().__init__()
@@ -222,19 +238,43 @@ class KernelPENodeEncoder(torch.nn.Module):
         return x
 
 
-class RWSENodeEncoder(KernelPENodeEncoder):
-    """Random Walk Structural Encoding node encoder.
-    """
-    kernel_type = 'RWSE'
+class PartitionInfoEncoder(torch.nn.Module):
+    def __init__(self, dim_in, dim_emb, dim_pe, expand_x=True):
+        super().__init__()
+
+        if dim_emb - dim_pe < 0: # formerly 1, but you could have zero feature size
+            raise ValueError(f"Part size {dim_pe} is too large for "
+                             f"desired embedding size of {dim_emb}.")
+
+        if expand_x and dim_emb - dim_pe > 0:
+            self.linear_x = torch.nn.Linear(dim_in, dim_emb - dim_pe)
+        self.expand_x = expand_x and dim_emb - dim_pe > 0
+
+        # todo: temporary set 20
+        self.pe_encoder = torch.nn.Embedding(20, dim_pe, max_norm=True)
+
+    def forward(self, x, batch):
+        if not hasattr(batch, 'partition'):
+            raise ValueError("Precomputed partitions are "
+                             f"required for {self.__class__.__name__}")
+        pos_enc = self.pe_encoder(batch.partition)
+
+        if self.expand_x:
+            h = self.linear_x(x)
+        else:
+            h = x
+        x = torch.cat((h, pos_enc), 1)
+        return x
 
 
 def get_atom_encoder(atom_encoder: str,
                      hidden: int,
                      in_feature: int = None,
                      lap_args: ConfigDict = None,
-                     rw_args: ConfigDict = None):
-    if lap_args is not None or rw_args is not None:
-        return FeatureEncoder(in_feature, hidden, atom_encoder, lap_args, rw_args)
+                     rw_args: ConfigDict = None,
+                     partition_args: ConfigDict = None):
+    if lap_args is not None or rw_args is not None or partition_args is not None:
+        return FeatureEncoder(in_feature, hidden, atom_encoder, lap_args, rw_args, partition_args)
     else:
         if atom_encoder == 'zinc':
             return ZINCAtomEncoder(hidden)
