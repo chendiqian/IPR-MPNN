@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from torch_scatter import scatter_sum
+from torch_scatter import scatter_sum, scatter_mean
 
 
 def sort_lexico(mask: torch.Tensor):
@@ -54,9 +54,13 @@ def get_auxloss(auxloss_dict, pool, graph_pool_idx, scores, data):
             # care the sign
             auxloss = auxloss - loss * auxloss_dict.variance
     if hasattr(auxloss_dict, 'hard_empty') and auxloss_dict.hard_empty > 0.:
-        # hard barrier function, punish the case that a cluster has 0 nodes
-        # if the weight is too large, the scores per node would be the same, but not across different nodes
-        # 0.01 is a good number
+        # the grad will be all negative, thus the scores will all increase
+        # tensor([[-0.3333, -0.0556, -0.3333],
+        #         [-0.3333, -0.0556, -0.3333],
+        #         [-0.3333, -0.0556, -0.3333],
+        #         [-0.3333, -0.0556, -0.3333],
+        #         [-0.3333, -0.0556, -0.3333]], device='cuda:0')
+
         thresh = torch.topk(scores, 1, dim=1, largest=True, sorted=True).values[:, -1, :][:, None, :]
         node_mask = (scores >= thresh).to(torch.float)
         node_mask = node_mask - scores.detach() + scores
@@ -64,22 +68,35 @@ def get_auxloss(auxloss_dict, pool, graph_pool_idx, scores, data):
         counts = scatter_sum(node_mask, data.batch, dim=0)
         loss = - torch.log(counts + 1.).sum(1).mean()  # otherwise the grad too large
         auxloss = auxloss + auxloss_dict.hard_empty * loss
-    if hasattr(auxloss_dict, 'soft_empty') and auxloss_dict.soft_empty > 0.:
-        # # soft barrier function
-        # # if the number is large, all scores would be small, so good against huge scores
-        # # the score for cluster i across different nodes may be similar
-        # # but the max would not be effected, i.e., still can have an empty cluster
-        # # 0.001 or smaller
-        # node_mask = torch.softmax(scores, dim=1)
-        #
-        # counts = scatter_sum(node_mask, data.batch, dim=0)
-        # loss = - torch.log(counts).sum(1).mean()
-        # auxloss = auxloss + auxloss_dict.soft_empty * loss
+    if hasattr(auxloss_dict, 'soft_empty'):
+        # more flexible
+        # tensor([[-0.0013, 0.0029, -0.0017],
+        #         [-0.0013, 0.0029, -0.0016],
+        #         [-0.0013, 0.0030, -0.0017],
+        #         [-0.0012, 0.0029, -0.0017],
+        #         [-0.0013, 0.0029, -0.0016]], device='cuda:0')
+
+        node_mask = torch.softmax(scores / 10., dim=1)
+
+        counts = scatter_mean(node_mask, data.batch, dim=0)
+        loss = - torch.log(counts).sum(1).mean()
+        auxloss = auxloss + auxloss_dict.soft_empty * loss
+    if hasattr(auxloss_dict, 'kl') and auxloss_dict.kl > 0:
+        # give some grad like
+        # tensor([[1.3610, -0.6805, -0.6805],
+        #         [1.3610, -0.6805, -0.6805],
+        #         [1.3610, -0.6805, -0.6805],
+        #         [1.3610, -0.6805, -0.6805],
+        #         [1.3610, -0.6805, -0.6805]], device='cuda:0')
+
         thresh = torch.topk(scores, 1, dim=1, largest=True, sorted=True).values[:, -1, :][:, None, :]
         node_mask = (scores >= thresh).to(torch.float)
         node_mask = node_mask - scores.detach() + scores
 
         counts = scatter_sum(node_mask, data.batch, dim=0)
         loss = - torch.log_softmax(counts, dim=1).sum(1).mean()
-        auxloss = auxloss + auxloss_dict.soft_empty * loss
+        auxloss = auxloss + auxloss_dict.kl * loss
+    if hasattr(auxloss_dict, 'scale') and auxloss_dict.scale > 0.:
+        loss = (scores ** 2).mean()
+        auxloss = auxloss + auxloss_dict.scale * loss
     return auxloss
