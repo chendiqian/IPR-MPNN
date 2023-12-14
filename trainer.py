@@ -138,17 +138,22 @@ class Plotter:
             if self.plot_mask:
                 n_samples, nnodes, n_centroids, n_ensemble = node_mask.shape
 
-                vmin = np.min(node_mask)
-                vmax = np.max(node_mask)
+                # vmin = np.min(node_mask)
+                # vmax = np.max(node_mask)
+
+                vmin = np.min(node_mask.sum(1))
+                vmax = np.max(node_mask.sum(1))
 
                 fig, axs = plt.subplots(ncols=n_samples * n_ensemble + 1,
-                                        figsize=(n_centroids * n_samples * n_ensemble * 1.2, nnodes),
+                                        # figsize=(n_centroids * n_samples * n_ensemble * 1.2, nnodes),
+                                        figsize=(n_centroids * n_samples * n_ensemble * 1.2, 1.),
                                         gridspec_kw=dict(width_ratios=[1.] * n_samples * n_ensemble + [0.3]))
 
                 for ens in range(n_ensemble):
                     for ns in range(n_samples):
                         # nnodes, n_centroids
-                        mask = node_mask[ns, :, :, ens]
+                        # mask = node_mask[ns, :, :, ens]
+                        mask = node_mask[ns, :, :, ens].sum(0, keepdims=True)
 
                         axs[ens * n_samples + ns].set_axis_off()
                         sns.heatmap(mask, cbar=False, vmin=vmin, vmax=vmax, ax=axs[ens * n_samples + ns],
