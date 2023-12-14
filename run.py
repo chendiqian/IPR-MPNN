@@ -101,7 +101,7 @@ def main(args, wandb):
                 else:
                     trainer.patience += 1
 
-                if trainer.patience > args.patience:
+                if trainer.patience > args.patience and epoch > args.min_epoch:
                     break
 
                 log_dict = {'train_loss': train_loss,
