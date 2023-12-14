@@ -12,6 +12,7 @@ from torch_geometric.transforms import (Compose,
                                         ToUndirected,
                                         AddRemainingSelfLoops)
 from data.utils import AttributedDataLoader
+from data.data_preprocess import AugmentWithPartition
 
 
 NUM_WORKERS = 1
@@ -26,6 +27,7 @@ PRETRANSFORM_PRIORITY = {
     AddRemainingSelfLoops: 100,
     AddRandomWalkPE: 98,
     AddLaplacianEigenvectorPE: 98,
+    AugmentWithPartition: 98,
 }
 
 
@@ -35,6 +37,8 @@ def get_additional_path(args: Union[Namespace, ConfigDict]):
         extra_path += 'rwse_'
     if hasattr(args.encoder, 'lap'):
         extra_path += 'lap_'
+    if hasattr(args, 'auxloss') and hasattr(args.auxloss, 'partition') and args.auxloss.partition > 0.:
+        extra_path += f'partition{args.scorer_model.num_centroids}_'
     return extra_path if len(extra_path) else None
 
 
@@ -55,6 +59,8 @@ def get_pretransform(args: Union[Namespace, ConfigDict], extra_pretransforms: Op
         pretransform.append(AddRandomWalkPE(args.encoder.rwse.kernel, 'pestat_RWSE'))
     if hasattr(args.encoder, 'lap'):
         pretransform.append(AddLaplacianEigenvectorPE(args.encoder.lap.max_freqs, 'EigVecs', is_undirected=True))
+    if hasattr(args, 'auxloss') and hasattr(args.auxloss, 'partition') and args.auxloss.partition > 0.:
+        pretransform.append(AugmentWithPartition(args.scorer_model.num_centroids))
 
     if pretransform:
         pretransform = sorted(pretransform, key=lambda p: PRETRANSFORM_PRIORITY[type(p)], reverse=True)
