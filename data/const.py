@@ -7,7 +7,6 @@ DATASET_FEATURE_STAT_DICT = {
     'alchemy': {'node': 6, 'edge': 4, 'num_class': 12},  # regression, but 12 labels
 
     'proteins': {'node': 3, 'edge': 0, 'num_class': 1},  # bin classification
-    'mutag': {'node': 7, 'edge': 4, 'num_class': 1},  # bin classification
     'ptc_mr': {'node': 18, 'edge': 4, 'num_class': 1},  # bin classification
     'nci1': {'node': 37, 'edge': 0, 'num_class': 1},  # bin classification
     'nci109': {'node': 38, 'edge': 0, 'num_class': 1},  # bin classification
