@@ -37,13 +37,24 @@ class EXPAtomEncoder(torch.nn.Module):
         return self.embedding(data.x)
 
 
-class LinearEncocer(torch.nn.Module):
+class LinearEncoder(torch.nn.Module):
     def __init__(self, in_feature, hidden):
-        super(LinearEncocer, self).__init__()
+        super(LinearEncoder, self).__init__()
         self.embedding = torch.nn.Linear(in_feature, hidden)
 
     def forward(self, data):
         return self.embedding(data.x)
+
+
+class LinearBondEncoder(torch.nn.Module):
+    def __init__(self, in_feature, hidden):
+        super(LinearBondEncoder, self).__init__()
+        self.embedding = torch.nn.Linear(in_feature, hidden)
+    def forward(self, edge_attr):
+        if edge_attr is not None:
+            return self.embedding(edge_attr)
+        else:
+            return None
 
 
 class MyOGBAtomEncoder(torch.nn.Module):
@@ -294,16 +305,18 @@ def get_atom_encoder(atom_encoder: str,
         elif atom_encoder == 'exp':
             return EXPAtomEncoder(hidden)
         elif atom_encoder == 'linear':
-            return LinearEncocer(in_feature, hidden)
+            return LinearEncoder(in_feature, hidden)
         else:
             raise NotImplementedError
 
 
-def get_bond_encoder(bond_encoder: str, hidden: int):
+def get_bond_encoder(bond_encoder: str, hidden: int, in_features: int = None):
     if bond_encoder == 'zinc':
         return ZINCBondEncoder(hidden)
     elif bond_encoder == 'ogb':
         return OGB_BondEncoder(hidden)
+    elif bond_encoder == 'linear':
+        return LinearBondEncoder(in_features, hidden)
     elif bond_encoder is None:
         return None
     else:

@@ -20,7 +20,8 @@ def get_model(args, device):
                                 args.encoder.partition if hasattr(args.encoder, 'partition') else None)
 
     def get_bond_encoder_handler():
-        return get_bond_encoder(args.encoder.bond, args.hetero.hidden)
+        return get_bond_encoder(args.encoder.bond, args.hetero.hidden,
+                                DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['edge'],)
 
     # scorer model
     if hasattr(args, 'scorer_model') and args.scorer_model is not None:
