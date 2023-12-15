@@ -89,11 +89,11 @@ class HeteroConv(torch.nn.Module):
 
 
 class HeteroGINEConv(MessagePassing):
-    def __init__(self, in_dim, hid_dim, edge_encoder, num_mlp_layers, norm, act):
+    def __init__(self, src_in_dim, dst_id_him, hid_dim, edge_encoder, num_mlp_layers, norm, act):
         super(HeteroGINEConv, self).__init__(aggr="add")
 
-        self.lin_src = torch.nn.Linear(in_dim, hid_dim)
-        self.lin_dst = torch.nn.Linear(in_dim, hid_dim)
+        self.lin_src = torch.nn.Linear(src_in_dim, hid_dim)
+        self.lin_dst = torch.nn.Linear(dst_id_him, hid_dim)
         self.edge_encoder = edge_encoder
         self.mlp = MLP([hid_dim] * (num_mlp_layers + 1), norm=norm, act=act)
         self.eps = torch.nn.Parameter(torch.Tensor([0.]))
@@ -148,21 +148,30 @@ class HeteroGNN(torch.nn.Module):
         else:
             raise NotImplementedError
 
-        b2b, b2c, c2c, c2b = (0, 0, 0, 0) if parallel else (0, 1, 2, 3)
+        b2b, b2c, c2c, c2b = (0, 0, 0, 0) if parallel else (1, 0, 0, 1)
         self.gnn_convs = torch.nn.ModuleList()
         for layer in range(num_conv_layers):
-            in_dim = 2 * hid_dim if (layer > 0 and aggr == 'cat' and parallel) else hid_dim
+            b2b_src_in_dim = b2c_src_in_dim = c2c_src_in_dim = c2b_src_in_dim = hid_dim
+            b2b_dst_in_dim = b2c_dst_in_dim = c2c_dst_in_dim = c2b_dst_in_dim = hid_dim
+            # if mean, no need to operate
+            if aggr == 'cat':
+                if layer == 0:
+                    if not parallel:
+                        c2b_src_in_dim = hid_dim * 2
+                else:
+                    b2b_src_in_dim = b2c_src_in_dim = c2c_src_in_dim = c2b_src_in_dim = 2 * hid_dim
+                    b2b_dst_in_dim = b2c_dst_in_dim = c2c_dst_in_dim = c2b_dst_in_dim = 2 * hid_dim
 
             self.gnn_convs.append(
                 HeteroConv({
                     ('base', 'to', 'base'):
-                        (f_conv(in_dim, hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2b),
+                        (f_conv(b2b_src_in_dim, b2b_dst_in_dim, hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2b),
                     ('base', 'to', 'centroid'):
-                        (f_conv(in_dim, hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2c),
+                        (f_conv(b2c_src_in_dim, b2c_dst_in_dim, hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2c),
                     ('centroid', 'to', 'centroid'):
-                        (f_conv(in_dim, hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2c),
+                        (f_conv(c2c_src_in_dim, c2c_dst_in_dim, hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2c),
                     ('centroid', 'to', 'base'):
-                        (f_conv(in_dim, hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2b),
+                        (f_conv(c2b_src_in_dim, c2b_dst_in_dim, hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2b),
                 },
                     aggr=aggr))
 
