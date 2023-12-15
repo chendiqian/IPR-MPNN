@@ -3,11 +3,14 @@ import json
 import os
 from ast import literal_eval
 from collections import namedtuple
-from ml_collections import ConfigDict
 from typing import Any, Dict, List, Tuple, Union, Optional
 
+import numpy as np
+import torch
 import yaml
+from ml_collections import ConfigDict
 from multimethod import multimethod
+from sklearn.model_selection import StratifiedKFold
 
 AttributedDataLoader = namedtuple(
     'AttributedDataLoader', [
@@ -143,3 +146,16 @@ class IsBetter:
             return better, the_better
         else:
             raise ValueError
+
+
+def separate_data(fold_idx, dataset, num_folds):
+    assert 0 <= fold_idx < num_folds, f"fold_idx must be from 0 to {num_folds - 1}."
+    skf = StratifiedKFold(n_splits=num_folds, shuffle=True, random_state=0)
+
+    labels = dataset._data.y.numpy()
+    idx_list = []
+    for idx in skf.split(np.zeros(len(labels)), labels):
+        idx_list.append(idx)
+    train_idx, test_idx = idx_list[fold_idx]
+
+    return torch.tensor(train_idx), torch.tensor(test_idx), torch.tensor(test_idx)

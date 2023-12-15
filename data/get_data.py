@@ -11,15 +11,18 @@ from torch_geometric.transforms import (Compose,
                                         AddLaplacianEigenvectorPE,
                                         ToUndirected,
                                         AddRemainingSelfLoops)
-from data.utils import AttributedDataLoader
-from data.data_preprocess import AugmentWithPartition
 
+from data.data_preprocess import AugmentWithPartition
+from data.planarsatpairsdataset import PlanarSATPairsDataset
+from data.utils import AttributedDataLoader
+from data.utils import separate_data
 
 NUM_WORKERS = 1
 
 DATASET = (ZINC,
            WebKB,
-           LRGBDataset)
+           LRGBDataset,
+           PlanarSATPairsDataset)
 
 # sort keys, some pre_transform should be executed first
 PRETRANSFORM_PRIORITY = {
@@ -81,6 +84,8 @@ def get_data(args: Union[Namespace, ConfigDict], force_subset):
         task = 'node'
     elif args.dataset.lower().startswith('peptides'):
         train_set, val_set, test_set, std = get_lrgb(args, force_subset)
+    elif args.dataset.lower() == 'exp':
+        train_set, val_set, test_set, std = get_exp_dataset(args, force_subset)
     else:
         raise ValueError
 
@@ -136,9 +141,10 @@ def get_zinc(args: Union[Namespace, ConfigDict], force_subset: bool):
                     transform=transform,
                     pre_transform=pre_transform)
 
-    train_set.data.y = train_set.data.y[:, None]
-    val_set.data.y = val_set.data.y[:, None]
-    test_set.data.y = test_set.data.y[:, None]
+    for sp in [train_set, val_set, test_set]:
+        sp.data.x = sp.data.x.squeeze()
+        sp.data.edge_attr = sp.data.edge_attr.squeeze()
+        sp.data.y = sp.data.y[:, None]
 
     if args.debug or force_subset:
         train_set = train_set[:1]
@@ -211,3 +217,40 @@ def get_lrgb(args: Union[Namespace, ConfigDict], force_subset):
         test_set = test_set[:1]
 
     return train_set, val_set, test_set, None
+
+
+def get_exp_dataset(args, force_subset, num_fold=10):
+    extra_path = get_additional_path(args)
+    extra_path = extra_path if extra_path is not None else 'normal'
+    pre_transform = get_pretransform(args, extra_pretransforms=[ToUndirected()])
+    transform = get_transform(args)
+
+    dataset = PlanarSATPairsDataset(os.path.join(args.data_path, args.dataset.upper()),
+                                    extra_path,
+                                    transform=transform,
+                                    pre_transform=pre_transform)
+    dataset._data.y = dataset._data.y.float()[:, None]
+    dataset._data.x = dataset._data.x.squeeze()
+
+    train_sets, val_sets, test_sets = [], [], []
+    for idx in range(num_fold):
+        train, val, test = separate_data(idx, dataset, num_fold)
+        train_set = dataset[train]
+        val_set = dataset[val]
+        test_set = dataset[test]
+
+        train_sets.append(train_set)
+        val_sets.append(val_set)
+        test_sets.append(test_set)
+
+    if args.debug:
+        train_sets = train_sets[0]
+        val_sets = val_sets[0]
+        test_sets = test_sets[0]
+
+    if force_subset:
+        train_sets = train_sets[:1]
+        val_sets = val_sets[:1]
+        test_sets = test_sets[:1]
+
+    return train_sets, val_sets, test_sets, None
