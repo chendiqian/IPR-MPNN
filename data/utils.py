@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 from ast import literal_eval
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from typing import Any, Dict, List, Tuple, Union, Optional
 
 import numpy as np
@@ -10,7 +10,7 @@ import torch
 import yaml
 from ml_collections import ConfigDict
 from multimethod import multimethod
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 
 AttributedDataLoader = namedtuple(
     'AttributedDataLoader', [
@@ -159,3 +159,33 @@ def separate_data(fold_idx, dataset, num_folds):
     train_idx, test_idx = idx_list[fold_idx]
 
     return torch.tensor(train_idx), torch.tensor(test_idx), torch.tensor(test_idx)
+
+
+def get_all_split_idx(dataset):
+    """
+        - Split total number of graphs into 3 (train, val and test) in 3:1:1
+        - Stratified split proportionate to original distribution of data with respect to classes
+        - Using sklearn to perform the split and then save the indexes
+        - Preparing 5 such combinations of indexes split to be used in Graph NNs
+        - As with KFold, each of the 5 fold have unique test set.
+    """
+
+    k_splits = 5
+    all_idx = defaultdict(list)
+
+    cross_val_fold = StratifiedKFold(n_splits=k_splits, shuffle=True, random_state=0)
+    labels = dataset.data.y.squeeze().numpy()
+
+    for indexes in cross_val_fold.split(labels, labels):
+        remain_index, test_index = indexes[0], indexes[1]
+
+        # Gets final 'train' and 'val'
+        train, val, _, _ = train_test_split(remain_index,
+                                             range(len(remain_index)),
+                                             test_size=0.25,
+                                             stratify=labels[remain_index])
+        all_idx['train'].append(train)
+        all_idx['val'].append(val)
+        all_idx['test'].append(test_index)
+
+    return all_idx

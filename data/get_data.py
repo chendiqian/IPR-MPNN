@@ -4,7 +4,8 @@ from functools import partial
 from typing import Union, List, Optional
 
 from ml_collections import ConfigDict
-from torch_geometric.datasets import ZINC, WebKB, LRGBDataset
+from torch.utils.data import Subset
+from torch_geometric.datasets import ZINC, WebKB, LRGBDataset, GNNBenchmarkDataset
 from torch_geometric.loader import DataLoader as PyGDataLoader
 from torch_geometric.transforms import (Compose,
                                         AddRandomWalkPE,
@@ -12,17 +13,18 @@ from torch_geometric.transforms import (Compose,
                                         ToUndirected,
                                         AddRemainingSelfLoops)
 
-from data.data_preprocess import AugmentWithPartition
+from data.data_preprocess import AugmentWithPartition, AugmentWithDumbAttr
 from data.planarsatpairsdataset import PlanarSATPairsDataset
-from data.utils import AttributedDataLoader
-from data.utils import separate_data
+from data.utils import AttributedDataLoader, get_all_split_idx, separate_data
 
 NUM_WORKERS = 1
 
 DATASET = (ZINC,
            WebKB,
            LRGBDataset,
-           PlanarSATPairsDataset)
+           PlanarSATPairsDataset,
+           GNNBenchmarkDataset,
+           Subset)
 
 # sort keys, some pre_transform should be executed first
 PRETRANSFORM_PRIORITY = {
@@ -31,6 +33,7 @@ PRETRANSFORM_PRIORITY = {
     AddRandomWalkPE: 98,
     AddLaplacianEigenvectorPE: 98,
     AugmentWithPartition: 98,
+    AugmentWithDumbAttr: 98,
 }
 
 
@@ -86,6 +89,8 @@ def get_data(args: Union[Namespace, ConfigDict], force_subset):
         train_set, val_set, test_set, std = get_lrgb(args, force_subset)
     elif args.dataset.lower() == 'exp':
         train_set, val_set, test_set, std = get_exp_dataset(args, force_subset)
+    elif args.dataset.lower() == 'csl':
+        train_set, val_set, test_set, std = get_CSL(args, force_subset)
     else:
         raise ValueError
 
@@ -242,6 +247,43 @@ def get_exp_dataset(args, force_subset, num_fold=10):
         train_sets.append(train_set)
         val_sets.append(val_set)
         test_sets.append(test_set)
+
+    if args.debug:
+        train_sets = train_sets[0]
+        val_sets = val_sets[0]
+        test_sets = test_sets[0]
+        if force_subset:
+            train_sets = train_sets[:1]
+            val_sets = val_sets[:1]
+            test_sets = test_sets[:1]
+    else:
+        if force_subset:
+            train_sets = train_sets[0][:1]
+            val_sets = val_sets[0][:1]
+            test_sets = test_sets[0][:1]
+
+    return train_sets, val_sets, test_sets, None
+
+
+def get_CSL(args, force_subset):
+    pre_transform = get_pretransform(args, extra_pretransforms=[AugmentWithDumbAttr()])
+    transform = get_transform(args)
+
+    data_path = args.data_path
+    extra_path = get_additional_path(args)
+    if extra_path is not None:
+        data_path = os.path.join(data_path, extra_path)
+
+    dataset = GNNBenchmarkDataset(data_path,
+                                  name='CSL',
+                                  transform=transform,
+                                  pre_transform=pre_transform)
+
+    splits = get_all_split_idx(dataset)
+
+    train_sets = [Subset(dataset, splits['train'][i]) for i in range(5)]
+    val_sets = [Subset(dataset, splits['val'][i]) for i in range(5)]
+    test_sets = [Subset(dataset, splits['test'][i]) for i in range(5)]
 
     if args.debug:
         train_sets = train_sets[0]

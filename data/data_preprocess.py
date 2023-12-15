@@ -27,3 +27,10 @@ class AugmentWithPartition:
 
         graph.partition = cluster
         return graph
+
+
+class AugmentWithDumbAttr:
+    def __call__(self, graph: Data):
+        graph.x = torch.ones(graph.num_nodes, 1, dtype=torch.float)
+        graph.edge_attr = torch.ones(graph.num_edges, 1, dtype=torch.float)
+        return graph
