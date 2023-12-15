@@ -74,7 +74,7 @@ def get_auxloss(auxloss_dict, pool, graph_pool_idx, scores, data):
         counts = scatter_sum(node_mask, data.batch, dim=0)
         loss = - torch.log(counts + 1.).sum(1).mean()  # otherwise the grad too large
         auxloss = auxloss + auxloss_dict.hard_empty * loss
-    if hasattr(auxloss_dict, 'soft_empty'):
+    if hasattr(auxloss_dict, 'soft_empty') and auxloss_dict.soft_empty > 0.:
         # more flexible
         # tensor([[-0.0013, 0.0029, -0.0017],
         #         [-0.0013, 0.0029, -0.0016],
