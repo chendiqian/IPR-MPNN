@@ -27,7 +27,7 @@ def get_auxloss(auxloss_dict, pool, graph_pool_idx, scores, data):
         assert hasattr(data, 'partition')
         scores = scores.permute(2, 0, 1).reshape(n_ensemble * nnodes, n_centroids)
         labels = data.partition.repeat(n_ensemble)
-        assert scores.shape[1] >= data.y.max() + 1
+        assert scores.shape[1] >= data.partition.max() + 1
         auxloss = auxloss + torch.nn.CrossEntropyLoss()(scores, labels) * auxloss_dict.partition
     if hasattr(auxloss_dict, 'variance') and auxloss_dict.variance != 0.:
         if n_ensemble > 1:
