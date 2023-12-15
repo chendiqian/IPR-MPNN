@@ -12,7 +12,7 @@ class ZINCBondEncoder(torch.nn.Module):
 
     def forward(self, edge_attr):
         if edge_attr is not None:
-            return self.embedding(edge_attr.squeeze())
+            return self.embedding(edge_attr)
         else:
             return None
 
@@ -24,7 +24,17 @@ class ZINCAtomEncoder(torch.nn.Module):
         torch.nn.init.xavier_uniform_(self.embedding.weight.data)
 
     def forward(self, data):
-        return self.embedding(data.x.squeeze())
+        return self.embedding(data.x)
+
+
+class EXPAtomEncoder(torch.nn.Module):
+    def __init__(self, hidden):
+        super(EXPAtomEncoder, self).__init__()
+        self.embedding = torch.nn.Embedding(num_embeddings=2, embedding_dim=hidden)
+        torch.nn.init.xavier_uniform_(self.embedding.weight.data)
+
+    def forward(self, data):
+        return self.embedding(data.x)
 
 
 class LinearEncocer(torch.nn.Module):
@@ -251,7 +261,8 @@ class PartitionInfoEncoder(torch.nn.Module):
         self.expand_x = expand_x and dim_emb - dim_pe > 0
 
         # todo: temporary set 20
-        self.pe_encoder = torch.nn.Embedding(20, dim_pe, max_norm=True)
+        self.pe_encoder = torch.nn.Embedding(20, dim_pe)
+        torch.nn.init.xavier_uniform_(self.pe_encoder.weight.data)
 
     def forward(self, x, batch):
         if not hasattr(batch, 'partition'):
@@ -280,6 +291,8 @@ def get_atom_encoder(atom_encoder: str,
             return ZINCAtomEncoder(hidden)
         elif atom_encoder == 'ogb':
             return MyOGBAtomEncoder(hidden)
+        elif atom_encoder == 'exp':
+            return EXPAtomEncoder(hidden)
         elif atom_encoder == 'linear':
             return LinearEncocer(in_feature, hidden)
         else:
