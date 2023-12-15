@@ -247,10 +247,14 @@ def get_exp_dataset(args, force_subset, num_fold=10):
         train_sets = train_sets[0]
         val_sets = val_sets[0]
         test_sets = test_sets[0]
-
-    if force_subset:
-        train_sets = train_sets[:1]
-        val_sets = val_sets[:1]
-        test_sets = test_sets[:1]
+        if force_subset:
+            train_sets = train_sets[:1]
+            val_sets = val_sets[:1]
+            test_sets = test_sets[:1]
+    else:
+        if force_subset:
+            train_sets = train_sets[0][:1]
+            val_sets = val_sets[0][:1]
+            test_sets = test_sets[0][:1]
 
     return train_sets, val_sets, test_sets, None
