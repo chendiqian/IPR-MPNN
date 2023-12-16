@@ -25,7 +25,7 @@ class ScorerGNN(torch.nn.Module):
                  ):
         super(ScorerGNN, self).__init__()
 
-        self.atom_encoder = atom_encoder_handler()
+        self.atom_encoder = atom_encoder_handler(True)
         self.edge_encoder = bond_encoder_handler()
         self.num_centroids = num_centroids
         self.num_ensemble = num_ensemble
