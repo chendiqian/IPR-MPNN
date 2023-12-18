@@ -1,6 +1,6 @@
 from torch_geometric.nn import MLP
 
-from data.const import DATASET_FEATURE_STAT_DICT
+from data.const import DATASET_FEATURE_STAT_DICT, ENCODER_TYPE_DICT
 from models.base2centroid import GNNMultiEdgeset
 from models.hetero_gnn import HeteroGNN
 from models.hybrid_model import HybridModel
@@ -12,7 +12,7 @@ from samplers.get_sampler import get_sampler
 def get_model(args, device):
     # get atom encoder and bond encoder
     def get_atom_encoder_handler(partition_encoder = False):
-        return get_atom_encoder(args.encoder.atom,
+        return get_atom_encoder(ENCODER_TYPE_DICT[args.dataset.lower()]['atom'],
                                 args.hetero.hidden,
                                 DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['node'],
                                 args.encoder.lap if hasattr(args.encoder, 'lap') else None,
@@ -20,7 +20,8 @@ def get_model(args, device):
                                 args.encoder.partition if (hasattr(args.encoder, 'partition') and partition_encoder) else None)
 
     def get_bond_encoder_handler():
-        return get_bond_encoder(args.encoder.bond, args.hetero.hidden,
+        return get_bond_encoder(ENCODER_TYPE_DICT[args.dataset.lower()]['bond'],
+                                args.hetero.hidden,
                                 DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['edge'],)
 
     # scorer model

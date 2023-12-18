@@ -162,3 +162,12 @@ SCHEDULER_MODE = {
     'rmse': 'min',
     'ap': 'max',
 }
+
+ENCODER_TYPE_DICT = {
+    'zinc': {'bond': 'zinc', 'atom': 'zinc'},
+    'peptides-func': {'bond': 'ogb', 'atom': 'ogb'},
+    'peptides-struct': {'bond': 'ogb', 'atom': 'ogb'},
+    'cornell': {'bond': None, 'atom': 'linear'},
+    'csl': {'bond': 'linear', 'atom': 'linear'},
+    'exp': {'bond': None, 'atom': 'exp'},
+}

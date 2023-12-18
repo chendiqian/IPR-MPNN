@@ -18,9 +18,7 @@ min_epoch: 100
 patience: 100
 
 # encoder
-encoder:
-    atom: linear
-    bond: none
+encoder: null
 
 #scorer_model: none
 scorer_model:

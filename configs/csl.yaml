@@ -18,9 +18,6 @@ patience: 100
 
 # encoder
 encoder:
-    atom: linear
-    bond: linear
-
     partition:
         dim_pe: 32
 

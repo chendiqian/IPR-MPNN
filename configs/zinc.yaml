@@ -19,8 +19,6 @@ patience: 100
 
 # encoder
 encoder:
-    atom: zinc
-    bond: zinc
     rwse:
         kernel: 20
         layers: 2
