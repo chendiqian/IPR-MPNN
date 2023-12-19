@@ -1,5 +1,5 @@
 wandb:
-    use_wandb: false
+    use_wandb: true
     project: pep-func
     entity: chendiqian
 #    name: run1
@@ -8,22 +8,22 @@ ckpt: false
 
 dataset: peptides-func
 data_path: ./datasets
-batch_size: 128
+batch_size: 64
 lr: 1.e-3
 weight_decay: 0.
-debug: true
+debug: false
 num_runs: 3
 max_epoch: 1000
-min_epoch: 300
+min_epoch: 100
 patience: 100
 
 # encoder
 encoder:
-#    rwse:
-#        kernel: 20
-#        layers: 2
-#        dim_pe: 32
-#        raw_norm_type: 'BatchNorm'
+    rwse:
+        kernel: 20
+        layers: 2
+        dim_pe: 32
+        raw_norm_type: 'BatchNorm'
 
     lap:
         max_freqs: 4
@@ -34,10 +34,10 @@ encoder:
 #scorer_model: none
 scorer_model:
     conv: gine
-    hidden: 128
-    num_conv_layers: 2
-    num_mlp_layers: 3
-    norm: none
+    hidden: 320
+    num_conv_layers: 0
+    num_mlp_layers: 2
+    norm: graph_norm
     activation: gelu
     dropout: 0.
     num_centroids: 2
@@ -45,9 +45,9 @@ scorer_model:
 # extract the base nodes to super nodes
 base2centroid:
     conv: gine
-    num_conv_layers: 3
-    num_mlp_layers: 1
-    norm: graph_norm
+    num_conv_layers: 2
+    num_mlp_layers: 3
+    norm: batch_norm
     activation: gelu
     dropout: 0.
 
@@ -55,7 +55,7 @@ base2centroid:
 hetero:
     conv: gine
     hidden: 256
-    num_conv_layers: 5
+    num_conv_layers: 2
     num_mlp_layers: 2
     norm: batch_norm
     activation: gelu
@@ -74,7 +74,7 @@ sampler:
 
 hybrid_model:
     target: base
-    inter_pred_layer: 1
+    inter_pred_layer: 2
     intra_pred_layer: 2
     inter_ensemble_pool: mean
     intra_graph_pool: mean
@@ -82,9 +82,10 @@ hybrid_model:
 #auxloss:
 #    soft_empty: 0.01
 #    hard_empty: 1.e-5
-#
-#plots:
-#    plot_every: 1
+
+plots:
+    plot_every: 20
 #    plot_folder: './plots'
-#    mask: true
-#    score: true
+    mask: true
+    score: true
+    graph: true
