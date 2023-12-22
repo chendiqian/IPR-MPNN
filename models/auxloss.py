@@ -18,17 +18,18 @@ def get_auxloss(auxloss_dict, pool, graph_pool_idx, scores, data):
         # this must be node prediction task
         assert graph_pool_idx == 'output_mask'
 
-        scores = pool(scores, getattr(data, graph_pool_idx))
-        scores = scores.permute(2, 0, 1).reshape(n_ensemble * nnodes, n_centroids)
+        _scores = pool(scores, getattr(data, graph_pool_idx))
+        _nnodes = _scores.shape[0]   # renew the value of nnodes
+        _scores = _scores.permute(2, 0, 1).reshape(n_ensemble * _nnodes, n_centroids)
         labels = data.y.repeat(n_ensemble)
-        assert scores.shape[1] >= data.y.max() + 1
-        auxloss = auxloss + torch.nn.CrossEntropyLoss()(scores, labels) * auxloss_dict.scorer_label_supervised
+        assert _scores.shape[1] >= data.y.max() + 1
+        auxloss = auxloss + torch.nn.CrossEntropyLoss()(_scores, labels) * auxloss_dict.scorer_label_supervised
     if hasattr(auxloss_dict, 'partition') and auxloss_dict.partition > 0.:
         assert hasattr(data, 'partition')
-        scores = scores.permute(2, 0, 1).reshape(n_ensemble * nnodes, n_centroids)
+        _scores = scores.permute(2, 0, 1).reshape(n_ensemble * nnodes, n_centroids)
         labels = data.partition.repeat(n_ensemble)
-        assert scores.shape[1] >= data.partition.max() + 1
-        auxloss = auxloss + torch.nn.CrossEntropyLoss()(scores, labels) * auxloss_dict.partition
+        assert _scores.shape[1] >= data.partition.max() + 1
+        auxloss = auxloss + torch.nn.CrossEntropyLoss()(_scores, labels) * auxloss_dict.partition
     if hasattr(auxloss_dict, 'variance') and auxloss_dict.variance != 0.:
         if n_ensemble > 1:
             thresh = torch.topk(scores, 1, dim=1, largest=True, sorted=True).values[:, -1, :][:, None, :]
