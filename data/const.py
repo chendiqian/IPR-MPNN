@@ -177,3 +177,14 @@ ENCODER_TYPE_DICT = {
     'csl': {'bond': 'linear', 'atom': 'linear'},
     'exp': {'bond': None, 'atom': 'exp'},
 }
+
+# whether to set cached=True for GCNConv, only True if transductive
+GCN_CACHE = {
+    'zinc': False,
+    'peptides-func': False,
+    'peptides-struct': False,
+    'cornell': True,
+    'amazon-ratings': True,
+    'csl': False,
+    'exp': False,
+}
