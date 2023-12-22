@@ -8,7 +8,7 @@ from torch.nn import Identity
 from torch_geometric.nn import MLP
 from torch_geometric.nn.resolver import normalization_resolver
 from torch_geometric.utils import subgraph
-from torch_scatter import scatter_sum
+from torch_scatter import scatter_sum, scatter_mean
 
 
 class GINEConvMultiEdgeset(torch.nn.Module):
@@ -45,6 +45,46 @@ class GINEConvMultiEdgeset(torch.nn.Module):
         return out
 
 
+class SAGEConvMultiEdgeset(torch.nn.Module):
+    def __init__(self, in_channel, out_channel, bond_encoder):
+        super(SAGEConvMultiEdgeset, self).__init__()
+
+        self.lin = torch.nn.Linear(in_channel, in_channel, bias=True)
+        self.lin_l = torch.nn.Linear(in_channel, out_channel, bias=True)
+        # they use false
+        # https://pytorch-geometric.readthedocs.io/en/latest/_modules/torch_geometric/nn/conv/sage_conv.html#SAGEConv
+        self.lin_r = torch.nn.Linear(in_channel, out_channel, bias=False)
+        self.bond_encoder = bond_encoder
+
+    def forward(self, x, edge_index, edge_attr, edge_weight):
+        # (repeats * choices * nnodes), features = x.shape
+        # repeats, choices, nedges, 1 = edge_weight.shape
+
+        # 1, 1, nedges, features
+        edge_embedding = self.bond_encoder(edge_attr) if edge_attr is not None else torch.zeros(1, 1, device=x.device,
+                                                                                                dtype=x.dtype)
+
+        x_l, x_r = (self.lin(x), x)
+
+        if self.training:
+            edge_embedding = edge_embedding.repeat(1, 1, 1, 1)
+            repeats, choices, _, _ = edge_weight.shape
+            unflatten_x = x_l.reshape(repeats, choices, -1, x_l.shape[-1])
+            message = F.gelu(unflatten_x[:, :, edge_index[0], :] + edge_embedding)
+            message = message * edge_weight
+            # sage use mean aggr by default
+            out = scatter_mean(message, edge_index[1], dim=2, dim_size=unflatten_x.shape[2])
+            out = out.reshape(x_l.shape)
+        else:
+            # cannot reshape x like that, as the number of edges per centroid / ensemble graph may vary
+            message = F.gelu(x_l[edge_index[0], :] + edge_embedding)
+            message = message * edge_weight
+            out = scatter_mean(message, edge_index[1], dim=0, dim_size=x_l.shape[0])
+
+        out = self.lin_l(out) + self.lin_r(x_r)
+        return out
+
+
 class GNNMultiEdgeset(torch.nn.Module):
     def __init__(self,
                  conv,
@@ -59,7 +99,6 @@ class GNNMultiEdgeset(torch.nn.Module):
                  dropout):
         super(GNNMultiEdgeset, self).__init__()
 
-        assert conv == 'gine'
         self.atom_encoder = atom_encoder_handler()
         self.dropout = dropout
 
@@ -69,16 +108,24 @@ class GNNMultiEdgeset(torch.nn.Module):
         self.norms = torch.nn.ModuleList()
 
         for dim_in, dim_out in zip(dims[:-1], dims[1:]):
-            self.convs.append(
-                GINEConvMultiEdgeset(
-                    torch.nn.Sequential(
-                        torch.nn.Linear(dim_in, dim_out),
-                        torch.nn.GELU(),
-                        torch.nn.Linear(dim_out, dim_out),
-                    ),
-                    bond_encoder_handler(),
+            # gin also in this case, edge_attr can be None
+            if conv in ['gin', 'gine']:
+                self.convs.append(
+                    GINEConvMultiEdgeset(
+                        torch.nn.Sequential(
+                            torch.nn.Linear(dim_in, dim_out),
+                            torch.nn.GELU(),
+                            torch.nn.Linear(dim_out, dim_out),
+                        ),
+                        bond_encoder_handler(),
+                    )
                 )
-            )
+            elif conv == 'sage':
+                self.convs.append(
+                    SAGEConvMultiEdgeset(dim_in, dim_out, bond_encoder_handler())
+                )
+            else:
+                raise NotImplementedError
             self.norms.append(normalization_resolver(norm, dim_out) if norm is not None else Identity())
 
         self.supports_norm_batch = False

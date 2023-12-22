@@ -122,6 +122,36 @@ class HeteroGINEConv(MessagePassing):
         return aggr_out
 
 
+class HeteroSAGEConv(MessagePassing):
+    def __init__(self, src_in_dim, dst_id_him, hid_dim, edge_encoder, num_mlp_layers, norm, act):
+        super(HeteroSAGEConv, self).__init__(aggr="mean")
+
+        self.lin_src = torch.nn.Linear(src_in_dim, hid_dim)
+        self.lin_dst = torch.nn.Linear(dst_id_him, hid_dim)
+        self.edge_encoder = edge_encoder
+        self.mlp = MLP([hid_dim] * (num_mlp_layers + 1), norm=norm, act=act)
+
+    def forward(self, x, edge_index, edge_attr, edge_weight=None, batch=None):
+        x = (self.lin_src(x[0]), x[1])
+
+        if edge_attr is not None and self.edge_encoder is not None:
+            edge_attr = self.edge_encoder(edge_attr)
+
+        out = self.propagate(edge_index, x=x, edge_attr=edge_attr, edge_weight=edge_weight)
+        x_dst = self.lin_dst(x[1])
+        out = out + x_dst
+        return self.mlp(out, batch)
+
+    def message(self, x_j, edge_attr, edge_weight):
+        if edge_weight is not None and edge_weight.ndim < 2:
+            edge_weight = edge_weight[:, None]
+        m = F.gelu(x_j + edge_attr) if edge_attr is not None else x_j
+        return m * edge_weight if edge_weight is not None else m
+
+    def update(self, aggr_out):
+        return aggr_out
+
+
 class HeteroGNN(torch.nn.Module):
     def __init__(self,
                  conv,
@@ -145,6 +175,8 @@ class HeteroGNN(torch.nn.Module):
 
         if conv == 'gine':
             f_conv = HeteroGINEConv
+        elif conv == 'sage':
+            f_conv = HeteroSAGEConv
         else:
             raise NotImplementedError
 

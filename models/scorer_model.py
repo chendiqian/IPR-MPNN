@@ -4,7 +4,7 @@ from typing import Callable
 import torch
 import torch.nn.functional as F
 from torch.nn import Sequential, GELU, Linear, Identity
-from torch_geometric.nn import MLP, GINEConv, GINConv, GCNConv
+from torch_geometric.nn import MLP, GINEConv, GINConv, GCNConv, SAGEConv
 from torch_geometric.nn.resolver import normalization_resolver
 
 
@@ -59,6 +59,11 @@ class ScorerGNN(torch.nn.Module):
                     GCNConv(in_channels=in_dims[i],
                             out_channels=hidden,
                             cached=conv_cache)
+                )
+            elif conv == 'sage':
+                self.convs.append(
+                    SAGEConv(in_channels=in_dims[i],
+                             out_channels=hidden)
                 )
             else:
                 raise NotImplementedError
