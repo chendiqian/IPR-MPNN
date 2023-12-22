@@ -5,7 +5,10 @@ from typing import Union, List, Optional
 
 from ml_collections import ConfigDict
 from torch.utils.data import Subset
-from torch_geometric.datasets import ZINC, WebKB, LRGBDataset, GNNBenchmarkDataset
+from torch_geometric.datasets import (ZINC, WebKB,
+                                      LRGBDataset,
+                                      GNNBenchmarkDataset,
+                                      HeterophilousGraphDataset)
 from torch_geometric.loader import DataLoader as PyGDataLoader
 from torch_geometric.transforms import (Compose,
                                         AddRandomWalkPE,
@@ -24,7 +27,8 @@ DATASET = (ZINC,
            LRGBDataset,
            PlanarSATPairsDataset,
            GNNBenchmarkDataset,
-           Subset)
+           Subset,
+           HeterophilousGraphDataset)
 
 # sort keys, some pre_transform should be executed first
 PRETRANSFORM_PRIORITY = {
@@ -82,8 +86,8 @@ def get_data(args: Union[Namespace, ConfigDict], force_subset):
     task = 'graph'
     if args.dataset.lower() == 'zinc':
         train_set, val_set, test_set, std = get_zinc(args, force_subset)
-    elif args.dataset.lower().startswith('hetero'):
-        train_set, val_set, test_set, std = get_heterophily(args, force_subset)
+    elif args.dataset.lower() in ['amazon-ratings', 'cornell', 'texas', 'wisconsin']:
+        train_set, val_set, test_set, std = get_hetero(args, force_subset)
         task = 'node'
     elif args.dataset.lower().startswith('peptides'):
         train_set, val_set, test_set, std = get_lrgb(args, force_subset)
@@ -159,14 +163,20 @@ def get_zinc(args: Union[Namespace, ConfigDict], force_subset: bool):
     return train_set, val_set, test_set, None
 
 
-def get_heterophily(args, force_subset):
-    dataset_name = args.dataset.lower().split('_')[1]
-    datapath = os.path.join(args.data_path, 'hetero_' + dataset_name)
+def get_hetero(args, force_subset):
+    datapath = os.path.join(args.data_path, args.dataset.lower())
     extra_path = get_additional_path(args)
     if extra_path is not None:
         datapath = os.path.join(datapath, extra_path)
 
-    pre_transforms = get_pretransform(args, extra_pretransforms=[ToUndirected(reduce='mean')])
+    if args.dataset.lower() in ['cornell', 'texas', 'wisconsin']:
+        extra_pretransforms = [ToUndirected(reduce='mean')]
+        dataset_class = WebKB
+    else:
+        extra_pretransforms = None
+        dataset_class = HeterophilousGraphDataset
+
+    pre_transforms = get_pretransform(args, extra_pretransforms=extra_pretransforms)
     transform = get_transform(args)
 
     splits = {'train': [], 'val': [], 'test': []}
@@ -174,10 +184,10 @@ def get_heterophily(args, force_subset):
     folds = range(10)
     for split in ['train', 'val', 'test']:
         for fold in folds:
-            dataset = WebKB(root=datapath,
-                            name=dataset_name,
-                            transform=transform,
-                            pre_transform=pre_transforms)
+            dataset = dataset_class(root=datapath,
+                                    name=args.dataset.lower(),
+                                    transform=transform,
+                                    pre_transform=pre_transforms)
             mask = getattr(dataset.data, f'{split}_mask')
             mask = mask[:, fold]
             dataset.data.y = dataset.data.y[mask]

@@ -48,9 +48,11 @@ DATASET_FEATURE_STAT_DICT = {
     'leafcolor_7': {'node': 255, 'tree_depth': 7, 'n_leaf_labels': 2},
     'leafcolor_8': {'node': 511, 'tree_depth': 8, 'n_leaf_labels': 2},
 
-    'hetero_cornell': {'node': 1703, 'edge': 0, 'num_class': 5},
-    'hetero_texas': {'node': 1703, 'edge': 0, 'num_class': 5},
-    'hetero_wisconsin': {'node': 1703, 'edge': 0, 'num_class': 5},
+    'cornell': {'node': 1703, 'edge': 0, 'num_class': 5},
+    'texas': {'node': 1703, 'edge': 0, 'num_class': 5},
+    'wisconsin': {'node': 1703, 'edge': 0, 'num_class': 5},
+
+    'amazon-ratings': {'node': 300, 'edge': 0, 'num_class': 5},
 }
 
 
@@ -75,9 +77,11 @@ TASK_TYPE_DICT = {
     'qm9': 'mae',
     'ppgnqm9': 'mae',
     'exp': 'acc',
-    'hetero_cornell': 'acc',
-    'hetero_texas': 'acc',
-    'hetero_wisconsin': 'acc',
+    'cornell': 'acc',
+    'texas': 'acc',
+    'wisconsin': 'acc',
+
+    'amazon-ratings': 'acc',
 
     'tree_2': 'acc',
     'tree_3': 'acc',
@@ -149,9 +153,10 @@ CRITERION_DICT = {
     'sym_skipcircles': nn.CrossEntropyLoss(),
     'sym_lcc': nn.CrossEntropyLoss(),
 
-    'hetero_cornell': nn.CrossEntropyLoss(),
-    'hetero_texas': nn.CrossEntropyLoss(),
-    'hetero_wisconsin': nn.CrossEntropyLoss(),
+    'cornell': nn.CrossEntropyLoss(),
+    'texas': nn.CrossEntropyLoss(),
+    'wisconsin': nn.CrossEntropyLoss(),
+    'amazon-ratings': nn.CrossEntropyLoss(),
 }
 
 SCHEDULER_MODE = {
@@ -168,6 +173,7 @@ ENCODER_TYPE_DICT = {
     'peptides-func': {'bond': 'ogb', 'atom': 'ogb'},
     'peptides-struct': {'bond': 'ogb', 'atom': 'ogb'},
     'cornell': {'bond': None, 'atom': 'linear'},
+    'amazon-ratings': {'bond': None, 'atom': 'linear'},
     'csl': {'bond': 'linear', 'atom': 'linear'},
     'exp': {'bond': None, 'atom': 'exp'},
 }
