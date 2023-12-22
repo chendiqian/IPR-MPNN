@@ -1,6 +1,6 @@
 from torch_geometric.nn import MLP
 
-from data.const import DATASET_FEATURE_STAT_DICT, ENCODER_TYPE_DICT
+from data.const import DATASET_FEATURE_STAT_DICT, ENCODER_TYPE_DICT, GCN_CACHE
 from models.base2centroid import GNNMultiEdgeset
 from models.hetero_gnn import HeteroGNN
 from models.hybrid_model import HybridModel
@@ -28,6 +28,7 @@ def get_model(args, device):
     if hasattr(args, 'scorer_model') and args.scorer_model is not None:
         scorer_model = ScorerGNN(
             conv=args.scorer_model.conv,
+            conv_cache=GCN_CACHE[args.dataset.lower()],
             atom_encoder_handler=get_atom_encoder_handler,
             bond_encoder_handler=get_bond_encoder_handler,
             in_feature=args.hetero.hidden,

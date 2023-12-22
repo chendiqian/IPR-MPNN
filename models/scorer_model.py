@@ -4,13 +4,14 @@ from typing import Callable
 import torch
 import torch.nn.functional as F
 from torch.nn import Sequential, GELU, Linear, Identity
-from torch_geometric.nn import MLP, GINEConv, GINConv
+from torch_geometric.nn import MLP, GINEConv, GINConv, GCNConv
 from torch_geometric.nn.resolver import normalization_resolver
 
 
 class ScorerGNN(torch.nn.Module):
     def __init__(self,
                  conv: str,
+                 conv_cache: bool,
                  atom_encoder_handler: Callable,
                  bond_encoder_handler: Callable,
                  in_feature: int,
@@ -52,6 +53,12 @@ class ScorerGNN(torch.nn.Module):
                         GELU(),
                         Linear(hidden, hidden),
                     ), train_eps=True, edge_dim=edge_dim)
+                )
+            elif conv == 'gcn':
+                self.convs.append(
+                    GCNConv(in_channels=in_dims[i],
+                            out_channels=hidden,
+                            cached=conv_cache)
                 )
             else:
                 raise NotImplementedError
