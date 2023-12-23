@@ -83,7 +83,8 @@ def get_auxloss(auxloss_dict, pool, graph_pool_idx, scores, data):
         #         [-0.0012, 0.0029, -0.0017],
         #         [-0.0013, 0.0029, -0.0016]], device='cuda:0')
 
-        node_mask = torch.softmax(scores / 10., dim=1)
+        # empirical temperature tau = 0.1
+        node_mask = torch.softmax(scores / scores.detach().abs().max() * 10., dim=1)
 
         counts = scatter_mean(node_mask, data.batch, dim=0)
         loss = - torch.log(counts).sum(1).mean()
