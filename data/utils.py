@@ -124,6 +124,20 @@ def args_canonize(args: Config):
     return args
 
 
+def args_unify(args: Config):
+    if args.scorer_model is not None and args.sampler is not None:
+        if isinstance(args.scorer_model.num_centroids, int):
+            args.scorer_model.num_centroids = [args.scorer_model.num_centroids] * args.sampler.num_ensemble
+        elif isinstance(args.scorer_model.num_centroids, str):
+            num_centroids = eval(args.scorer_model.num_centroids)
+            assert isinstance(num_centroids, list)
+            args.scorer_model.num_centroids = sorted(num_centroids)
+            args.sampler.num_ensemble = len(num_centroids)
+        else:
+            raise TypeError
+    return args
+
+
 class IsBetter:
     """
     A comparator for different metrics, to unify >= and <=
