@@ -11,9 +11,11 @@ def sort_lexico(mask: torch.Tensor):
     return mask[args].reshape(-1)
 
 
-def get_auxloss(auxloss_dict, pool, graph_pool_idx, scores, data):
+def get_auxloss(list_num_centroids, auxloss_dict, pool, graph_pool_idx, scores, data):
     auxloss = 0.
     nnodes, n_centroids, n_ensemble = scores.shape
+    assert len(set(list_num_centroids)) == 1
+    # Todo: make this compatible with multiple combinations
     if hasattr(auxloss_dict, 'scorer_label_supervised') and auxloss_dict.scorer_label_supervised > 0.:
         # this must be node prediction task
         assert graph_pool_idx == 'output_mask'

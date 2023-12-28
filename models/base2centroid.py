@@ -1,7 +1,5 @@
 import inspect
-from typing import Tuple
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.nn import Identity
@@ -20,9 +18,6 @@ class GINEConvMultiEdgeset(torch.nn.Module):
         self.bond_encoder = bond_encoder
 
     def forward(self, x, edge_index, edge_attr, edge_weight):
-        # (repeats * choices * nnodes), features = x.shape
-        # repeats, choices, nedges, 1 = edge_weight.shape
-
         # 1, 1, nedges, features
         edge_embedding = self.bond_encoder(edge_attr) if edge_attr is not None else torch.zeros(1, 1, device=x.device,
                                                                                                 dtype=x.dtype)
@@ -57,9 +52,6 @@ class SAGEConvMultiEdgeset(torch.nn.Module):
         self.bond_encoder = bond_encoder
 
     def forward(self, x, edge_index, edge_attr, edge_weight):
-        # (repeats * choices * nnodes), features = x.shape
-        # repeats, choices, nedges, 1 = edge_weight.shape
-
         # 1, 1, nedges, features
         edge_embedding = self.bond_encoder(edge_attr) if edge_attr is not None else torch.zeros(1, 1, device=x.device,
                                                                                                 dtype=x.dtype)
@@ -140,21 +132,24 @@ class GNNMultiEdgeset(torch.nn.Module):
                        act=activation,
                        norm=norm)
 
-    def forward(self, data, node_mask, edge_mask, dim_size: Tuple = None):
+    def forward(self, data, node_mask):
         device = data.x.device
-        n_centroids, n_graphs, repeats = dim_size
+        n_graphs = data.num_graphs
+        n_samples, sum_n_centroids, nnodes, _ = node_mask.shape
         batch, edge_index, edge_attr = data.batch, data.edge_index, data.edge_attr
         x = self.atom_encoder(data)
 
-        batch = batch.repeat(repeats * n_centroids) + \
-                torch.arange(repeats * n_centroids, device=device).repeat_interleave(
-                    data.num_nodes) * data.num_graphs
+        edge_mask = node_mask[:, :, edge_index[0], :] * node_mask[:, :, edge_index[1], :]
+
+        batch = batch.repeat(n_samples * sum_n_centroids) + \
+                torch.arange(n_samples * sum_n_centroids, device=device).repeat_interleave(
+                    data.num_nodes) * n_graphs
 
         if self.training:
-            x = x.repeat(repeats, n_centroids, 1, 1).reshape(-1, x.shape[-1])
+            x = x.repeat(n_samples, sum_n_centroids, 1, 1).reshape(-1, x.shape[-1])
         else:
-            edge_index = edge_index.repeat(1, repeats * n_centroids) + \
-                         torch.arange(repeats * n_centroids, device=device).repeat_interleave(
+            edge_index = edge_index.repeat(1, n_samples * sum_n_centroids) + \
+                         torch.arange(n_samples * sum_n_centroids, device=device).repeat_interleave(
                              data.num_edges) * data.num_nodes
             if edge_attr is not None:
                 nnz_edge_idx = edge_mask.squeeze(-1).nonzero()[..., -1]
@@ -177,7 +172,7 @@ class GNNMultiEdgeset(torch.nn.Module):
                                                              edge_index,
                                                              edge_attr,
                                                              relabel_nodes=True,
-                                                             num_nodes=data.num_nodes * repeats * n_centroids,
+                                                             num_nodes=data.num_nodes * n_samples * sum_n_centroids,
                                                              return_edge_mask=True)
 
             edge_mask = edge_mask[subg_edge_mask]
@@ -196,16 +191,13 @@ class GNNMultiEdgeset(torch.nn.Module):
 
         # pooling
         if self.training:
-            repeats, n_centroids, nnodes, _ = node_mask.shape
             single_batch = batch[:nnodes]  # it has been repeated
-            x = x.reshape(repeats, n_centroids, nnodes, -1)
+            x = x.reshape(n_samples, sum_n_centroids, nnodes, -1)
             x = scatter_sum(x * node_mask, single_batch, dim=2) / \
                 (scatter_sum(node_mask.detach(), single_batch, dim=2) + 1.e-7)
-            x = x.permute(0, 2, 1, 3).reshape(-1, x.shape[-1])
         else:
-            # (repeats * n_centroids * n_graphs) * F
-            x = scatter_sum(x * node_mask, batch, dim=0, dim_size=np.prod(dim_size).item()) / \
-                (scatter_sum(node_mask.detach(), batch, dim=0, dim_size=np.prod(dim_size).item()) + 1.e-7)
-            x = x.reshape(repeats, n_centroids, n_graphs, x.shape[-1])
-            x = x.permute(0, 2, 1, 3).reshape(-1, x.shape[-1])
+            # (n_samples * sum_n_centroids * n_graphs) * F
+            x = scatter_sum(x * node_mask, batch, dim=0, dim_size=n_samples * n_graphs * sum_n_centroids) / \
+                (scatter_sum(node_mask.detach(), batch, dim=0, dim_size=n_samples * n_graphs * sum_n_centroids) + 1.e-7)
+            x = x.reshape(n_samples, sum_n_centroids, n_graphs, x.shape[-1])
         return x

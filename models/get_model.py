@@ -35,7 +35,7 @@ def get_model(args, device):
             hidden=args.scorer_model.hidden,
             num_conv_layers=args.scorer_model.num_conv_layers,
             num_mlp_layers=args.scorer_model.num_mlp_layers,
-            num_centroids=args.scorer_model.num_centroids,
+            max_num_centroids=max(args.scorer_model.num_centroids),  # this is a list
             num_ensemble=args.sampler.num_ensemble,
             norm=args.scorer_model.norm,
             activation=args.scorer_model.activation,
@@ -104,7 +104,9 @@ def get_model(args, device):
             norm=None)
 
         hybrid_model = HybridModel(
+            device=device,
             scorer_model=scorer_model,
+            list_num_centroids=args.scorer_model.num_centroids,  # this is a list
             base2centroid_model=base2centroid_model,
             sampler=sampler,
             hetero_gnn=hetero_mpnn,

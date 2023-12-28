@@ -18,7 +18,7 @@ class ScorerGNN(torch.nn.Module):
                  hidden: int,
                  num_conv_layers: int,
                  num_mlp_layers: int,
-                 num_centroids: int,
+                 max_num_centroids: int,
                  num_ensemble: int,
                  norm: str,
                  activation: str,
@@ -28,7 +28,7 @@ class ScorerGNN(torch.nn.Module):
 
         self.atom_encoder = atom_encoder_handler(True)
         self.edge_encoder = bond_encoder_handler()
-        self.num_centroids = num_centroids
+        self.max_num_centroids = max_num_centroids
         self.num_ensemble = num_ensemble
 
         self.convs = torch.nn.ModuleList()
@@ -81,7 +81,7 @@ class ScorerGNN(torch.nn.Module):
 
         self.mlp = MLP(in_channels=in_feature if num_conv_layers == 0 else hidden,
                        hidden_channels=hidden,
-                       out_channels=num_centroids * num_ensemble,
+                       out_channels=max_num_centroids * num_ensemble,
                        num_layers=num_mlp_layers,
                        act=activation,
                        norm=norm)
@@ -106,5 +106,5 @@ class ScorerGNN(torch.nn.Module):
             x = F.dropout(x, p=self.dropout, training=self.training)
 
         x = self.mlp(x, batch)
-        x = x.reshape(-1, self.num_centroids, self.num_ensemble)
+        x = x.reshape(-1, self.max_num_centroids, self.num_ensemble)
         return x
