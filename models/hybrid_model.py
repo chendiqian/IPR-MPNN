@@ -202,3 +202,118 @@ class HybridModel(torch.nn.Module):
             auxloss = 0.
 
         return graph_embedding, plot_node_mask, plot_scores, auxloss
+
+
+    # def forward(self, data, for_plots_only=False):
+    #     device = data.x.device
+    #     plot_scores, plot_node_mask = None, None
+    #
+    #     cumsum_nnodes = data._slice_dict['x']
+    #     nnodes_list = (cumsum_nnodes[1:] - cumsum_nnodes[:-1]).to(device)
+    #
+    #     # get scores and samples
+    #     scores = self.scorer_model(data)
+    #     nnodes, max_n_centroids, n_ensemble = scores.shape
+    #     if for_plots_only:
+    #         plot_scores = scores.detach().clone().cpu().numpy()
+    #
+    #     # this is a mask indexing which centroids are kept in each ensemble
+    #     ens_idx_mask = torch.zeros(n_ensemble, max_n_centroids, dtype=torch.bool, device=device)
+    #     for i, n_ct in enumerate(self.list_num_centroids):
+    #         ens_idx_mask[i, :n_ct] = True
+    #
+    #     # for sampling, if there are less n_centroids than max possible num, then pad with a bias
+    #     scores[:, ~ens_idx_mask.t()] = scores[:, ~ens_idx_mask.t()] - LARGE_NUMBER
+    #
+    #     # k-subset sampling is carried out as usual, in parallel
+    #     node_mask, _ = self.sampler(scores) if self.training else self.sampler.validation(scores)
+    #     if for_plots_only:
+    #         plot_node_mask = node_mask.detach().cpu().numpy()
+    #         return None, plot_node_mask, plot_scores, None
+    #
+    #     n_samples, nnodes, n_centroids, n_ensemble = node_mask.shape
+    #     repeats = n_samples * n_ensemble
+    #
+    #     node_mask = node_mask.permute(0, 3, 2, 1).reshape(repeats, n_centroids, nnodes)[..., None]
+    #
+    #     # map clustered nodes into each centroid
+    #     # add a dimension for multiply broadcasting
+    #     # centx: n_samples, sum_n_centroids, n_graphs, features
+    #     centroid_x = self.base2centroid_model(data, node_mask)
+    #     centroid_x = centroid_x.permute(0, 2, 1, 3).reshape(-1, centroid_x.shape[-1])
+    #
+    #     # construct a heterogeneous hierarchical graph
+    #     # low to high hierarchy
+    #     src = torch.arange(data.num_nodes * repeats, device=device).repeat_interleave(n_centroids)
+    #     dst = torch.arange(repeats * data.num_graphs, device=device).repeat_interleave(
+    #         nnodes_list.repeat(repeats)) * n_centroids
+    #     dst = dst[None] + torch.arange(n_centroids, device=device, dtype=torch.long)[:, None]
+    #     dst = dst.t().reshape(-1)
+    #
+    #     # edges intra super nodes, assume graphs are undirected
+    #     # dumb edge index
+    #     idx = np.hstack([np.vstack(np.triu_indices(n_centroids, k=1)),
+    #                      np.vstack(np.tril_indices(n_centroids, k=-1))])
+    #     idx = torch.from_numpy(idx).to(device)
+    #
+    #     new_data = HeteroData(
+    #         base={'x': data.x,  # will be later filled
+    #               'batch': data.batch.repeat(repeats) +
+    #                        torch.arange(repeats, device=device).repeat_interleave(nnodes) * data.num_graphs},
+    #         centroid={'x': centroid_x,
+    #                   'batch': torch.arange(repeats * data.num_graphs, device=device).repeat_interleave(n_centroids)},
+    #
+    #         base__to__base={
+    #             'edge_index': data.edge_index.repeat(1, repeats) +
+    #                           torch.arange(repeats, device=device).repeat_interleave(data.num_edges) * data.num_nodes,
+    #             'edge_attr': (data.edge_attr.repeat(repeats) if data.edge_attr.dim() == 1 else
+    #                           data.edge_attr.repeat(repeats, 1)) if data.edge_attr is not None else None,
+    #             'edge_weight': None
+    #         },
+    #         base__to__centroid={
+    #             'edge_index': torch.vstack([src, dst]),
+    #             'edge_attr': None,
+    #             'edge_weight': node_mask.squeeze(-1).permute(0, 2, 1).reshape(-1)
+    #         },
+    #         centroid__to__base={
+    #             'edge_index': torch.vstack([dst, src]),
+    #             'edge_attr': None,
+    #             'edge_weight': node_mask.squeeze(-1).permute(0, 2, 1).reshape(-1)
+    #         },
+    #         centroid__to__centroid={
+    #             'edge_index': idx.repeat(1, data.num_graphs * repeats) +
+    #                           (torch.arange(data.num_graphs * repeats, device=device) * n_centroids).repeat_interleave(
+    #                               idx.shape[1]),
+    #             'edge_attr': None,
+    #             'edge_weight': None
+    #         }
+    #     )
+    #
+    #     base_embedding, centroid_embedding = self.hetero_gnn(
+    #         data,
+    #         new_data,
+    #         hasattr(data, 'edge_attr') and data.edge_attr is not None)
+    #
+    #     if self.target == 'base':
+    #         node_embedding = base_embedding.reshape(repeats, -1, base_embedding.shape[-1])
+    #         if self.inter_ensemble_pool == 'mean':
+    #             node_embedding = torch.mean(node_embedding, dim=0)
+    #         elif self.inter_ensemble_pool == 'max':
+    #             node_embedding = torch.max(node_embedding, dim=0).values
+    #         else:
+    #             raise NotImplementedError
+    #         node_embedding = self.inter_pred_head(node_embedding)
+    #         graph_embedding = self.intra_graph_pool(node_embedding, getattr(data, self.graph_pool_idx))
+    #         graph_embedding = self.intra_pred_head(graph_embedding)
+    #     else:
+    #         raise NotImplementedError
+    #
+    #     # get auxloss
+    #     if self.training and self.auxloss is not None:
+    #         auxloss = self.auxloss(pool=self.intra_graph_pool,
+    #                                graph_pool_idx=self.graph_pool_idx,
+    #                                scores=scores, data=data)
+    #     else:
+    #         auxloss = 0.
+    #
+    #     return graph_embedding, plot_node_mask, plot_scores, auxloss
