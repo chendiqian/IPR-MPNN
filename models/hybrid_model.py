@@ -101,7 +101,7 @@ class HybridModel(torch.nn.Module):
         # repeat2: [...]
 
         # low to high hierarchy edge index
-        src = torch.arange(nnodes * repeats).reshape(-1, nnodes).\
+        src = torch.arange(nnodes * repeats, device=device).reshape(-1, nnodes).\
             repeat_interleave(self.tensor_num_centroids.repeat(n_samples), dim=0).reshape(-1)
 
         dst = torch.cat([torch.arange(n_graphs * nct, device=device).reshape(n_graphs, nct)
