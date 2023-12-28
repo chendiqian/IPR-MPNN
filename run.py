@@ -16,7 +16,7 @@ from data.const import CRITERION_DICT, TASK_TYPE_DICT, SCHEDULER_MODE
 from data.metrics import Evaluator
 from data.get_data import get_data
 from data.utils import IsBetter
-from data.utils import Config, args_canonize
+from data.utils import Config, args_canonize, args_unify
 from models.get_model import get_model
 from trainer import Trainer, Plotter
 
@@ -138,7 +138,7 @@ def main(args, wandb):
 
 if __name__ == '__main__':
     _, args = args_parser()
-    args = args_canonize(args)
+    args = args_unify(args_canonize(args))
 
     wandb.init(project=args.wandb.project,
                name=args.wandb.name if hasattr(args.wandb, 'name') else None,

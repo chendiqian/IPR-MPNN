@@ -1,5 +1,5 @@
 import wandb
-from data.utils import args_canonize
+from data.utils import args_canonize, args_unify
 from run import main
 from ml_collections import ConfigDict
 
@@ -13,5 +13,5 @@ if __name__ == '__main__':
         mode="online",
     )
 
-    args = ConfigDict(args_canonize(wandb.config._as_dict()))
+    args = ConfigDict(args_unify(args_canonize(wandb.config._as_dict())))
     main(args, wandb)
