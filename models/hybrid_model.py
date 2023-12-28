@@ -116,7 +116,8 @@ class HybridModel(torch.nn.Module):
         dst = dst + bias[None]
         dst_backup = dst  # for the batch idx of the centroids
         dst = (dst.t().reshape(-1)).repeat_interleave(nnodes_list.repeat(sum_n_centroids))
-        dst = (dst[None] + torch.arange(n_samples, device=device)[:, None] * sum_n_centroids * n_graphs).reshape(-1)
+        if n_samples > 1:
+            dst = (dst[None] + torch.arange(n_samples, device=device)[:, None] * sum_n_centroids * n_graphs).reshape(-1)
 
         # dumb edge index intra centroids: fully connected, no self loop, undirected
         c2c_idx = np.hstack([np.tile(np.vstack(np.triu_indices(n_ct, k=1)), n_graphs) for n_ct in self.list_num_centroids])
@@ -125,8 +126,10 @@ class HybridModel(torch.nn.Module):
         c2c_idx = c2c_idx + bias
         c2c_idx = np.hstack([c2c_idx, c2c_idx[np.array([1, 0])]])
         c2c_idx = torch.from_numpy(c2c_idx).to(device)
-        c2c_idx = c2c_idx.repeat(1, n_samples) +\
-                  (torch.arange(n_samples, device=device) * sum_n_centroids * n_graphs).repeat_interleave(c2c_idx.shape[1])
+        if n_samples > 1:
+            c2c_idx = c2c_idx.repeat(1, n_samples) +\
+                      (torch.arange(n_samples, device=device) * sum_n_centroids * n_graphs).\
+                          repeat_interleave(c2c_idx.shape[1])
 
         # create batch idx
         original_x_batch = data.batch.repeat(repeats) +\
@@ -136,8 +139,10 @@ class HybridModel(torch.nn.Module):
         # otherwise the norm might go wrong, because some n_centroids are 1
         centroid_x_batch = torch.empty(sum_n_centroids * n_graphs, device=device, dtype=torch.long)
         centroid_x_batch[dst_backup.reshape(-1)] = torch.arange(n_graphs, device=device).repeat_interleave(sum_n_centroids)
-        centroid_x_batch = centroid_x_batch.repeat(n_samples) + \
-                           n_graphs * torch.arange(n_samples, device=device).repeat_interleave(n_graphs * sum_n_centroids)
+        if n_samples > 1:
+            centroid_x_batch = centroid_x_batch.repeat(n_samples) + \
+                               n_graphs * torch.arange(n_samples, device=device).\
+                                   repeat_interleave(n_graphs * sum_n_centroids)
 
         new_data = HeteroData(
             base={'x': data.x,   # will be later filled
