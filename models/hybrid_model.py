@@ -97,9 +97,13 @@ class HybridModel(torch.nn.Module):
 
         # construct a heterogeneous hierarchical graph
         # data is constructs like
-        # repeat1: [g1 to_centroid1_1, g2 to_centroid2_1, g1 to_centroid1_2, g2 to_centroid2_2 ...],
-        # repeat2: [...]
-
+        # ========================== repeat 1 ===========================
+        #      [0]      |        [1]       ||     [2]  [3]  |  [4]  [5]
+        #
+        # (0)  (1)  (2) | (3) (4) (5) (6)  || (7)  (8)  (9) | (10) (11) (12) (13)
+        # edge_index:
+        # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 7, 8, 9, 10, 11, 12, 13]
+        # [0, 0, 0, 1, 1, 1, 1, 2, 2, 2,  4,  4,  4,  4, 3, 3, 3,  5,  5,  5,  5]
         # low to high hierarchy edge index
         src = torch.arange(nnodes * repeats, device=device).reshape(-1, nnodes).\
             repeat_interleave(self.tensor_num_centroids.repeat(n_samples), dim=0).reshape(-1)
