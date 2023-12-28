@@ -13,5 +13,5 @@ if __name__ == '__main__':
         mode="online",
     )
 
-    args = ConfigDict(args_unify(args_canonize(wandb.config._as_dict())))
+    args = args_unify(ConfigDict(args_canonize(wandb.config._as_dict())))
     main(args, wandb)
