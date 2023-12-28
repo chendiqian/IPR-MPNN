@@ -1,9 +1,7 @@
 import os
-from argparse import Namespace
 from functools import partial
-from typing import Union, List, Optional
+from typing import List, Optional
 
-from ml_collections import ConfigDict
 from torch.utils.data import Subset
 from torch_geometric.datasets import (ZINC, WebKB,
                                       LRGBDataset,
@@ -18,7 +16,7 @@ from torch_geometric.transforms import (Compose,
 
 from data.data_preprocess import AugmentWithPartition, AugmentWithDumbAttr
 from data.planarsatpairsdataset import PlanarSATPairsDataset
-from data.utils import AttributedDataLoader, get_all_split_idx, separate_data
+from data.utils import Config, AttributedDataLoader, get_all_split_idx, separate_data
 
 NUM_WORKERS = 1
 
@@ -41,7 +39,7 @@ PRETRANSFORM_PRIORITY = {
 }
 
 
-def get_additional_path(args: Union[Namespace, ConfigDict]):
+def get_additional_path(args: Config):
     extra_path = ''
     if hasattr(args.encoder, 'rwse'):
         extra_path += 'rwse_'
@@ -52,7 +50,7 @@ def get_additional_path(args: Union[Namespace, ConfigDict]):
     return extra_path if len(extra_path) else None
 
 
-def get_transform(args: Union[Namespace, ConfigDict]):
+def get_transform(args: Config):
     transform = []
     if transform:
         return Compose(transform)
@@ -60,7 +58,7 @@ def get_transform(args: Union[Namespace, ConfigDict]):
         return None
 
 
-def get_pretransform(args: Union[Namespace, ConfigDict], extra_pretransforms: Optional[List] = None):
+def get_pretransform(args: Config, extra_pretransforms: Optional[List] = None):
     pretransform = []
     if extra_pretransforms is not None:
         pretransform = pretransform + extra_pretransforms
@@ -79,7 +77,7 @@ def get_pretransform(args: Union[Namespace, ConfigDict], extra_pretransforms: Op
         return None
 
 
-def get_data(args: Union[Namespace, ConfigDict], force_subset):
+def get_data(args: Config, force_subset):
     if not os.path.isdir(args.data_path):
         os.mkdir(args.data_path)
 
@@ -123,7 +121,7 @@ def get_data(args: Union[Namespace, ConfigDict], force_subset):
     return train_loaders, val_loaders, test_loaders
 
 
-def get_zinc(args: Union[Namespace, ConfigDict], force_subset: bool):
+def get_zinc(args: Config, force_subset: bool):
     pre_transform = get_pretransform(args)
     transform = get_transform(args)
 
@@ -154,6 +152,24 @@ def get_zinc(args: Union[Namespace, ConfigDict], force_subset: bool):
         sp.data.x = sp.data.x.squeeze()
         sp.data.edge_attr = sp.data.edge_attr.squeeze()
         sp.data.y = sp.data.y[:, None]
+
+    # from torch_geometric.utils import k_hop_subgraph
+    # from torch_geometric.data import Data
+    # gs = []
+    # g = train_set[0]
+    # idx = [0, 9, 1]
+    # for i in range(3):
+    #     subset, edge_index, _, edge_mask = k_hop_subgraph(node_idx=idx[i], num_hops=2, edge_index=g.edge_index,
+    #                    relabel_nodes=True)
+    #     gs.append(Data(x=g.x[subset],
+    #                    edge_index=edge_index,
+    #                    edge_attr=g.edge_attr[edge_mask],
+    #                    y=g.y))
+    #
+    # if args.debug:
+    #     train_set = gs
+    #     val_set = gs
+    #     test_set = gs
 
     if args.debug or force_subset:
         train_set = train_set[:1]
@@ -206,7 +222,7 @@ def get_hetero(args, force_subset):
     return train_set, val_set, test_set, None
 
 
-def get_lrgb(args: Union[Namespace, ConfigDict], force_subset):
+def get_lrgb(args: Config, force_subset):
     datapath = args.data_path
     extra_path = get_additional_path(args)
     if extra_path is not None:

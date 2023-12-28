@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Tuple, Union, Optional
 import numpy as np
 import torch
 import yaml
-from ml_collections import ConfigDict
 from multimethod import multimethod
 from sklearn.model_selection import StratifiedKFold, train_test_split
 
@@ -110,9 +109,9 @@ class Config(dict):
         return '\n'.join(texts)
 
 
-def args_canonize(args: Config):
+def args_canonize(args: Union[Config, Dict]):
     for k, v in args.items():
-        if isinstance(v, Union[Config, ConfigDict, Dict]):
+        if isinstance(v, Union[Config, Dict]):
             args[k] = args_canonize(v)
         if isinstance(v, str):
             if v.lower() == 'true':

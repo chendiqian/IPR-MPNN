@@ -1,7 +1,8 @@
 import torch
-from ml_collections import ConfigDict
 from torch_geometric.nn import MLP
 from ogb.graphproppred.mol_encoder import AtomEncoder as OGB_AtomEncoder, BondEncoder as OGB_BondEncoder
+
+from data.utils import Config
 
 
 class ZINCBondEncoder(torch.nn.Module):
@@ -72,9 +73,9 @@ class FeatureEncoder(torch.nn.Module):
                  dim_in,
                  hidden,
                  type_encoder: str,
-                 lap_encoder: ConfigDict = None,
-                 rw_encoder: ConfigDict = None,
-                 partition_encoder: ConfigDict = None):
+                 lap_encoder: Config = None,
+                 rw_encoder: Config = None,
+                 partition_encoder: Config = None):
         super(FeatureEncoder, self).__init__()
 
         lin_hidden = hidden
@@ -292,9 +293,9 @@ class PartitionInfoEncoder(torch.nn.Module):
 def get_atom_encoder(atom_encoder: str,
                      hidden: int,
                      in_feature: int = None,
-                     lap_args: ConfigDict = None,
-                     rw_args: ConfigDict = None,
-                     partition_args: ConfigDict = None):
+                     lap_args: Config = None,
+                     rw_args: Config = None,
+                     partition_args: Config = None):
     if lap_args is not None or rw_args is not None or partition_args is not None:
         return FeatureEncoder(in_feature, hidden, atom_encoder, lap_args, rw_args, partition_args)
     else:

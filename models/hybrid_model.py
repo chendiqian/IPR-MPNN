@@ -3,7 +3,6 @@ from typing import Union, List
 
 import numpy as np
 import torch
-from ml_collections import ConfigDict
 from torch_geometric.data import HeteroData
 
 from data.utils import Config
@@ -30,7 +29,7 @@ class HybridModel(torch.nn.Module):
                  inter_pred_head: torch.nn.Module,
                  intra_graph_pool: str,
                  inter_ensemble_pool: str,
-                 auxloss_dict: Union[Config, ConfigDict],
+                 auxloss_dict: Config,
                  ):
         super(HybridModel, self).__init__()
 
