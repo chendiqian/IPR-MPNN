@@ -132,7 +132,7 @@ class Plotter:
         }
 
         for phase, data in data_dict.items():
-            _, node_mask, scores, _ = model(data)
+            _, node_mask, scores, _ = model(data, True)
 
             # plot mask
             if self.plot_mask:
