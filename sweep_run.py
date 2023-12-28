@@ -1,7 +1,6 @@
 import wandb
-from data.utils import args_canonize, args_unify
+from data.utils import Config, args_canonize, args_unify
 from run import main
-from ml_collections import ConfigDict
 
 
 hyperparameter_defaults = {}
@@ -13,5 +12,8 @@ if __name__ == '__main__':
         mode="online",
     )
 
-    args = args_unify(ConfigDict(args_canonize(wandb.config._as_dict())))
-    main(args, wandb)
+    args = args_canonize(wandb.config._as_dict())
+    config = Config()
+    config.update(args)
+    config = args_unify(config)
+    main(config, wandb)
