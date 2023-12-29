@@ -59,8 +59,7 @@ sampler:
     name: simple
     sample_k: 1  # by default 1, i.e., each node gets assigned to 1 centroid
     num_ensemble: 1
-    train_samples: 1
-    val_samples: 1
+    n_samples: 1
     assign_value: false  # use marginals to assign weights on the node masks
 
 hybrid_model:
