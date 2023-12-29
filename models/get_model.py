@@ -48,6 +48,7 @@ def get_model(args, device):
     if hasattr(args, 'base2centroid') and args.base2centroid is not None:
         base2centroid_model = GNNMultiEdgeset(
             conv=args.base2centroid.conv,
+            centroid_aggr=args.base2centroid.centroid_aggr,
             atom_encoder_handler=get_atom_encoder_handler,
             bond_encoder_handler=get_bond_encoder_handler,
             hidden=args.hetero.hidden,

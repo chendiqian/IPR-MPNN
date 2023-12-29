@@ -6,7 +6,7 @@ from torch.nn import Identity
 from torch_geometric.nn import MLP
 from torch_geometric.nn.resolver import normalization_resolver
 from torch_geometric.utils import subgraph
-from torch_scatter import scatter_sum, scatter_mean
+from torch_scatter import scatter_sum, scatter_mean, scatter_max
 
 
 class GINEConvMultiEdgeset(torch.nn.Module):
@@ -80,6 +80,7 @@ class SAGEConvMultiEdgeset(torch.nn.Module):
 class GNNMultiEdgeset(torch.nn.Module):
     def __init__(self,
                  conv,
+                 centroid_aggr,
                  atom_encoder_handler,
                  bond_encoder_handler,
                  hidden,
@@ -91,6 +92,8 @@ class GNNMultiEdgeset(torch.nn.Module):
                  dropout):
         super(GNNMultiEdgeset, self).__init__()
 
+        assert centroid_aggr in ['mean', 'sum', 'add', 'max']
+        self.centroid_aggr = centroid_aggr
         self.atom_encoder = atom_encoder_handler()
         self.dropout = dropout
 
@@ -190,14 +193,20 @@ class GNNMultiEdgeset(torch.nn.Module):
         x = self.mlp(x, batch)
 
         # pooling
-        if self.training:
-            single_batch = batch[:nnodes]  # it has been repeated
-            x = x.reshape(n_samples, sum_n_centroids, nnodes, -1)
-            x = scatter_sum(x * node_mask, single_batch, dim=2) / \
-                (scatter_sum(node_mask.detach(), single_batch, dim=2) + 1.e-7)
+        flat_node_mask = node_mask.reshape(-1, 1)
+        dim_size = n_samples * n_graphs * sum_n_centroids
+
+        if self.centroid_aggr == 'mean':
+            # mean aggr, but need to consider the different num nodes in each centroid
+            x = scatter_sum(x * flat_node_mask, batch, dim=0, dim_size=dim_size) / \
+                (scatter_sum(flat_node_mask.detach(), batch, dim=0, dim_size=dim_size) + 1.e-7)
+        elif self.centroid_aggr == 'max':
+            x = scatter_max(x * flat_node_mask, batch, dim=0, dim_size=dim_size)[0]
+        elif self.centroid_aggr in ['sum', 'add']:
+            # sum aggr, but actually scaled by the number of graphs
+            x = scatter_mean(x * flat_node_mask, batch, dim=0, dim_size=dim_size)
         else:
-            # (n_samples * sum_n_centroids * n_graphs) * F
-            x = scatter_sum(x * node_mask, batch, dim=0, dim_size=n_samples * n_graphs * sum_n_centroids) / \
-                (scatter_sum(node_mask.detach(), batch, dim=0, dim_size=n_samples * n_graphs * sum_n_centroids) + 1.e-7)
-            x = x.reshape(n_samples, sum_n_centroids, n_graphs, x.shape[-1])
+            raise NotImplementedError
+
+        x = x.reshape(n_samples, sum_n_centroids, n_graphs, x.shape[-1])
         return x
