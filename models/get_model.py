@@ -98,7 +98,10 @@ def get_model(args, device):
                               num_layers=args.hybrid_model.intra_pred_layer,
                               norm=None)
         inter_pred_head = MLP(
-            in_channels=args.hetero.hidden * (2 if args.hetero.aggr == 'cat' else 1),
+            in_channels=args.hetero.hidden *
+                        (2 if args.hetero.aggr == 'cat' else 1) *
+                        (args.sampler.num_ensemble * args.sampler.n_samples
+                         if args.hybrid_model.inter_ensemble_pool == 'cat' else 1),
             hidden_channels=args.hetero.hidden,
             out_channels=args.hetero.hidden,
             num_layers=args.hybrid_model.inter_pred_layer,

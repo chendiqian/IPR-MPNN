@@ -179,11 +179,13 @@ class HybridModel(torch.nn.Module):
             hasattr(data, 'edge_attr') and data.edge_attr is not None)
 
         if self.target == 'base':
-            node_embedding = base_embedding.reshape(repeats, -1, base_embedding.shape[-1])
+            node_embedding = base_embedding.reshape(repeats, nnodes, base_embedding.shape[-1])
             if self.inter_ensemble_pool == 'mean':
                 node_embedding = torch.mean(node_embedding, dim=0)
             elif self.inter_ensemble_pool == 'max':
                 node_embedding = torch.max(node_embedding, dim=0).values
+            elif self.inter_ensemble_pool == 'cat':
+                node_embedding = node_embedding.permute(1, 0, 2).reshape(nnodes, repeats * node_embedding.shape[-1])
             else:
                 raise NotImplementedError
             node_embedding = self.inter_pred_head(node_embedding)
