@@ -10,13 +10,13 @@ from samplers.imle_pkg.wrapper import imle
 LARGE_NUMBER = 1.e10
 
 class IMLESampler(nn.Module):
-    def __init__(self, sample_k, device, train_ensemble, val_ensemble, noise_scale, beta):
+    def __init__(self, sample_k, device, n_samples, noise_scale, beta):
         super(IMLESampler, self).__init__()
         self.k = sample_k
 
         @imle(target_distribution=TargetDistribution(alpha=1.0, beta=beta),
               noise_distribution=GumbelDistribution(0., noise_scale, device),
-              nb_samples=train_ensemble,
+              nb_samples=n_samples,
               input_noise_temperature=1.,
               target_noise_temperature=1.,)
         def imle_train_scheme(logits: torch.Tensor):
@@ -25,8 +25,8 @@ class IMLESampler(nn.Module):
         self.train_forward = imle_train_scheme
 
         @imle(target_distribution=None,
-              noise_distribution=GumbelDistribution(0., noise_scale, device) if val_ensemble > 1 else None,
-              nb_samples=val_ensemble,
+              noise_distribution=GumbelDistribution(0., noise_scale, device) if n_samples > 1 else None,
+              nb_samples=n_samples,
               input_noise_temperature=1.,
               target_noise_temperature=1.,)
         def imle_val_scheme(logits: torch.Tensor):

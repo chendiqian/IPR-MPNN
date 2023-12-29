@@ -13,21 +13,17 @@ class SIMPLESampler(nn.Module):
     def __init__(self,
                  k,
                  device,
-                 val_ensemble=1,
-                 train_ensemble=1,
+                 n_samples=1,
                  assign_value=False):
         super(SIMPLESampler, self).__init__()
         self.k = k
         self.device = device
         self.layer_configs = dict()
-        assert val_ensemble > 0 and train_ensemble > 0
-        self.val_ensemble = val_ensemble
-        self.train_ensemble = train_ensemble
+        assert n_samples > 0
+        self.n_samples = n_samples
         self.assign_value = assign_value
 
-    def forward(self, scores, train=True, sample_from_score=True):
-        times_sampled = self.train_ensemble if train else self.val_ensemble
-
+    def forward(self, scores, sample_from_score=True):
         nnodes, choices, ensemble = scores.shape
         local_k = min(self.k, choices)
         flat_scores = scores.permute((0, 2, 1)).reshape(nnodes * ensemble, choices)
@@ -54,9 +50,9 @@ class SIMPLESampler(nn.Module):
 
         if sample_from_score:
             # we potentially need to sample multiple times
-            samples = layer.sample(flat_scores, local_k, times_sampled)
+            samples = layer.sample(flat_scores, local_k, self.n_samples)
             samples = samples[..., :choices]
-            samples = samples.reshape(times_sampled, nnodes, ensemble, choices).permute((0, 1, 3, 2))
+            samples = samples.reshape(self.n_samples, nnodes, ensemble, choices).permute((0, 1, 3, 2))
             samples = (samples - marginals[None]).detach() + marginals[None]
             if self.assign_value:
                 samples = samples * (marginals[None] + 1.e-7)
@@ -67,15 +63,15 @@ class SIMPLESampler(nn.Module):
 
     @torch.no_grad()
     def validation(self, scores):
-        if self.val_ensemble == 1:
-            _, marginals = self.forward(scores, False, sample_from_score=False)
-
+        if self.n_samples == 1:
+            marginals = None
             # do deterministic top-k
             mask = select_from_candidates(scores, self.k)
 
             if self.assign_value:
+                _, marginals = self.forward(scores, sample_from_score=False)
                 mask = mask * (marginals + 1.e-7)
 
             return mask[None], marginals
         else:
-            return self.forward(scores, False)
+            return self.forward(scores)
