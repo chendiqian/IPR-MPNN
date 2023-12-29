@@ -39,6 +39,7 @@ base2centroid:
     norm: batch_norm
     activation: gelu
     dropout: 0.
+    centroid_aggr: mean
 
 # the hetero, hierarchical GNN
 hetero:
