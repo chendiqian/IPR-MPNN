@@ -63,6 +63,7 @@ sampler:
     assign_value: false  # use marginals to assign weights on the node masks
 
 hybrid_model:
+    jk: none
     target: base
     inter_pred_layer: 3
     intra_pred_layer: 2
