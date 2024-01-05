@@ -7,7 +7,7 @@ from torch_geometric.data import HeteroData
 
 from data.utils import Config
 from models.auxloss import get_auxloss
-from models.nn_utils import get_graph_pooling
+from models.nn_utils import get_graph_pooling, jumping_knowledge
 from samplers.gumbel_scheme import GumbelSampler
 from samplers.imle_scheme import IMLESampler
 from samplers.simple_scheme import SIMPLESampler
@@ -24,6 +24,7 @@ class HybridModel(torch.nn.Module):
                  sampler: Union[IMLESampler, SIMPLESampler, GumbelSampler],
                  hetero_gnn: torch.nn.Module,
 
+                 jk: str,
                  target: str,
                  intra_pred_head: torch.nn.Module,
                  inter_pred_head: torch.nn.Module,
@@ -40,6 +41,7 @@ class HybridModel(torch.nn.Module):
         self.sampler = sampler
         self.hetero_gnn = hetero_gnn
 
+        self.jk = partial(jumping_knowledge, jk=jk)
         self.target = target
         self.inter_ensemble_pool = inter_ensemble_pool
         pool, graph_pool_idx = get_graph_pooling(intra_graph_pool)
@@ -236,10 +238,13 @@ class HybridModel(torch.nn.Module):
         )
         # ----------------------------------------------------------------------------------
 
-        base_embedding, centroid_embedding = self.hetero_gnn(
+        base_embeddings, centroid_embeddings = self.hetero_gnn(
             data,
             new_data,
             hasattr(data, 'edge_attr') and data.edge_attr is not None)
+
+        base_embedding = self.jk(base_embeddings)
+        centroid_embedding = self.jk(centroid_embeddings)
 
         if self.target == 'base':
             node_embedding = base_embedding.reshape(repeats, nnodes, base_embedding.shape[-1])

@@ -204,6 +204,8 @@ class HeteroGNN(torch.nn.Module):
         repeats = batch_dict['base'].shape[0] // x_dict['base'].shape[0]
         x_dict['base'] = self.atom_encoder(old_data).repeat(repeats, 1)
 
+        base_embeddings, centroid_embeddings = [], []
+
         for i in range(self.num_layers):
             h1 = x_dict
             h2 = self.gnn_convs[i](x_dict, edge_index_dict, edge_attr_dict, edge_weight_dict, batch_dict)
@@ -213,5 +215,7 @@ class HeteroGNN(torch.nn.Module):
             else:
                 x_dict = {k: F.gelu(h2[k]) for k in keys}
             x_dict = {k: F.dropout(x_dict[k], p=self.dropout, training=self.training) for k in keys}
+            base_embeddings.append(x_dict['base'])
+            centroid_embeddings.append(x_dict['centroid'])
 
-        return x_dict['base'], x_dict['centroid']
+        return base_embeddings, centroid_embeddings

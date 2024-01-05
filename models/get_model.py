@@ -112,6 +112,7 @@ def get_model(args, device):
             sampler=sampler,
             hetero_gnn=hetero_mpnn,
 
+            jk=args.hybrid_model.jk,
             target=args.hybrid_model.target,
             intra_pred_head=intra_pred_head,
             inter_pred_head=inter_pred_head,

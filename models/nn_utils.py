@@ -1,3 +1,5 @@
+from typing import List
+
 import torch
 from torch_geometric.nn import global_mean_pool, global_add_pool, global_max_pool
 
@@ -25,3 +27,23 @@ def get_graph_pooling(graph_pooling):
     else:
         raise NotImplementedError
     return pool, graph_pool_idx
+
+
+def jumping_knowledge(embeddings: List[torch.Tensor], jk: str):
+    if jk is None:
+        embedding = embeddings[-1]
+    elif jk == 'cat':
+        embedding = torch.cat(embeddings, dim=1)
+    elif jk == 'mean':
+        try:
+            embedding = torch.stack(embeddings, dim=0).mean(dim=0)
+        except RuntimeError:  # in case shape error
+            embedding = embeddings[-1]
+    elif jk == 'max':
+        try:
+            embedding = torch.stack(embeddings, dim=0).max(dim=0).values
+        except RuntimeError:  # in case shape error
+            embedding = embeddings[-1]
+    else:
+        raise NotImplementedError
+    return embedding
