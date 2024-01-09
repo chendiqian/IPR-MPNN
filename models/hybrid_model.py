@@ -7,7 +7,7 @@ from torch_geometric.data import HeteroData
 
 from data.utils import Config
 from models.auxloss import get_auxloss
-from models.nn_utils import get_graph_pooling, jumping_knowledge
+from models.nn_utils import get_graph_pooling, inter_ensemble_pooling, jumping_knowledge
 from samplers.gumbel_scheme import GumbelSampler
 from samplers.imle_scheme import IMLESampler
 from samplers.simple_scheme import SIMPLESampler
@@ -27,7 +27,8 @@ class HybridModel(torch.nn.Module):
                  jk: str,
                  target: str,
                  intra_pred_head: torch.nn.Module,
-                 inter_pred_head: torch.nn.Module,
+                 inter_base_pred_head: torch.nn.Module,
+                 inter_cent_pred_head: torch.nn.Module,
                  intra_graph_pool: str,
                  inter_ensemble_pool: str,
                  auxloss_dict: Config,
@@ -43,11 +44,14 @@ class HybridModel(torch.nn.Module):
 
         self.jk = partial(jumping_knowledge, jk=jk)
         self.target = target
-        self.inter_ensemble_pool = inter_ensemble_pool
+        self.inter_ensemble_pool = partial(inter_ensemble_pooling, inter_pool=inter_ensemble_pool)
+        if intra_graph_pool == 'root':
+            assert target == 'base', "Unable to use centroids"
         pool, graph_pool_idx = get_graph_pooling(intra_graph_pool)
         self.intra_graph_pool = pool
         self.graph_pool_idx = graph_pool_idx
-        self.inter_pred_head = inter_pred_head
+        self.inter_base_pred_head = inter_base_pred_head
+        self.inter_cent_pred_head = inter_cent_pred_head
         self.intra_pred_head = intra_pred_head
 
         self.auxloss = partial(get_auxloss,
@@ -83,101 +87,6 @@ class HybridModel(torch.nn.Module):
             plot_node_mask = node_mask.detach().cpu().numpy()
             return None, plot_node_mask, plot_scores, None
 
-        # ## -------------------------- version 1 ---------------------------------
-        # # slice and drop the unnecessary columns
-        # # nodemask: ns x nn x ncent x ens -> ns x nn x ens x ncent
-        # # mask: ns x nn x ens x ncent
-        # node_mask = node_mask.permute(0, 1, 3, 2)[ens_idx_mask.repeat(n_samples, nnodes, 1, 1)].reshape(n_samples, nnodes, -1)
-        # n_samples, nnodes, sum_n_centroids = node_mask.shape
-        # repeats = n_samples * n_ensemble
-        #
-        # # map clustered nodes into each centroid
-        # # node_mask: nx, sum_cents, nnodes, 1
-        # # add a dimension for multiply broadcasting
-        # # centx: n_samples, sum_n_centroids, n_graphs, features
-        # centroid_x = self.base2centroid_model(data, node_mask.permute(0, 2, 1)[..., None])
-        #
-        # # construct a heterogeneous hierarchical graph
-        # # data is constructs like
-        # # ========================== repeat 1 ===========================
-        # #      [0]      |        [1]       ||     [2]  [3]  |  [4]  [5]
-        # #
-        # # (0)  (1)  (2) | (3) (4) (5) (6)  || (7)  (8)  (9) | (10) (11) (12) (13)
-        # # edge_index:
-        # # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 7, 8, 9, 10, 11, 12, 13]
-        # # [0, 0, 0, 1, 1, 1, 1, 2, 2, 2,  4,  4,  4,  4, 3, 3, 3,  5,  5,  5,  5]
-        # # low to high hierarchy edge index
-        # src = torch.arange(nnodes * repeats, device=device).reshape(-1, nnodes).\
-        #     repeat_interleave(self.tensor_num_centroids.repeat(n_samples), dim=0).reshape(-1)
-        #
-        # dst = torch.cat([torch.arange(n_graphs * nct, device=device).reshape(n_graphs, nct)
-        #                  for nct in self.list_num_centroids], dim=1)
-        # bias = (torch.hstack([src.new_zeros(1),
-        #                       torch.cumsum(self.tensor_num_centroids, dim=0)[:-1]]) * n_graphs).\
-        #     repeat_interleave(self.tensor_num_centroids)
-        # dst = dst + bias[None]
-        # dst_backup = dst  # for the batch idx of the centroids
-        # dst = (dst.t().reshape(-1)).repeat_interleave(nnodes_list.repeat(sum_n_centroids))
-        # if n_samples > 1:
-        #     dst = (dst[None] + torch.arange(n_samples, device=device)[:, None] * sum_n_centroids * n_graphs).reshape(-1)
-        #
-        # # dumb edge index intra centroids: fully connected, no self loop, undirected
-        # c2c_idx = np.hstack([np.tile(np.vstack(np.triu_indices(n_ct, k=1)), n_graphs) for n_ct in self.list_num_centroids])
-        # bias = np.concatenate([np.zeros(1, dtype=np.int64), np.repeat(self.list_num_centroids, n_graphs)[:-1]]).cumsum()
-        # bias = bias.repeat((np.array(self.list_num_centroids) * (np.array(self.list_num_centroids) - 1) // 2).repeat(n_graphs))
-        # c2c_idx = c2c_idx + bias
-        # c2c_idx = np.hstack([c2c_idx, c2c_idx[np.array([1, 0])]])
-        # c2c_idx = torch.from_numpy(c2c_idx).to(device)
-        # if n_samples > 1:
-        #     c2c_idx = c2c_idx.repeat(1, n_samples) +\
-        #               (torch.arange(n_samples, device=device) * sum_n_centroids * n_graphs).\
-        #                   repeat_interleave(c2c_idx.shape[1])
-        #
-        # # create batch idx
-        # original_x_batch = data.batch.repeat(repeats) +\
-        #                    torch.arange(repeats, device=device).repeat_interleave(nnodes) * n_graphs
-        #
-        # # centroids in the same n_sample are considered as one batch, regardless of ensemble
-        # # otherwise the norm might go wrong, because some n_centroids are 1
-        # centroid_x_batch = torch.empty(sum_n_centroids * n_graphs, device=device, dtype=torch.long)
-        # centroid_x_batch[dst_backup.reshape(-1)] = torch.arange(n_graphs, device=device).repeat_interleave(sum_n_centroids)
-        # if n_samples > 1:
-        #     centroid_x_batch = centroid_x_batch.repeat(n_samples) + \
-        #                        n_graphs * torch.arange(n_samples, device=device).\
-        #                            repeat_interleave(n_graphs * sum_n_centroids)
-        #
-        # new_data = HeteroData(
-        #     base={'x': data.x,   # will be later filled
-        #           'batch': original_x_batch},
-        #     centroid={'x': centroid_x.reshape(-1, centroid_x.shape[-1]),
-        #               'batch': centroid_x_batch},
-        #
-        #     base__to__base={
-        #         'edge_index': data.edge_index.repeat(1, repeats) +
-        #                       torch.arange(repeats, device=device).repeat_interleave(data.num_edges) * data.num_nodes,
-        #         'edge_attr': (data.edge_attr.repeat(repeats) if data.edge_attr.dim() == 1 else
-        #                       data.edge_attr.repeat(repeats, 1)) if data.edge_attr is not None else None,
-        #         'edge_weight': None
-        #     },
-        #     base__to__centroid={
-        #         'edge_index': torch.vstack([src, dst]),
-        #         'edge_attr': None,
-        #         'edge_weight': node_mask.permute(0, 2, 1).reshape(-1)
-        #     },
-        #     centroid__to__base={
-        #         'edge_index': torch.vstack([dst, src]),
-        #         'edge_attr': None,
-        #         'edge_weight': node_mask.permute(0, 2, 1).reshape(-1)
-        #     },
-        #     centroid__to__centroid={
-        #         'edge_index': c2c_idx,
-        #         'edge_attr': None,
-        #         'edge_weight': None
-        #     }
-        # )
-        # # ------------------------------------------------------------------------------------
-
-        ## ---------------------------------- version 2 ------------------------------------
         # when combination with various cluster numbers, some clusters have 0s embedding
         n_samples, nnodes, n_centroids, n_ensemble = node_mask.shape
         repeats = n_samples * n_ensemble
@@ -186,14 +95,14 @@ class HybridModel(torch.nn.Module):
 
         # map clustered nodes into each centroid
         # add a dimension for multiply broadcasting
-        # centx: n_samples, sum_n_centroids, n_graphs, features
+        # centx: repeats, n_centroids, n_graphs, features
         centroid_x = self.base2centroid_model(data, node_mask[..., None])
         centroid_x = centroid_x.permute(0, 2, 1, 3).reshape(-1, centroid_x.shape[-1])
 
         # construct a heterogeneous hierarchical graph
         # low to high hierarchy
         src = torch.arange(data.num_nodes * repeats, device=device).repeat_interleave(n_centroids)
-        dst = torch.arange(repeats * data.num_graphs, device=device).repeat_interleave(
+        dst = torch.arange(repeats * n_graphs, device=device).repeat_interleave(
             nnodes_list.repeat(repeats)) * n_centroids
         dst = dst[None] + torch.arange(n_centroids, device=device, dtype=torch.long)[:, None]
         dst = dst.t().reshape(-1)
@@ -207,9 +116,9 @@ class HybridModel(torch.nn.Module):
         new_data = HeteroData(
             base={'x': data.x,  # will be later filled
                   'batch': data.batch.repeat(repeats) +
-                           torch.arange(repeats, device=device).repeat_interleave(nnodes) * data.num_graphs},
+                           torch.arange(repeats, device=device).repeat_interleave(nnodes) * n_graphs},
             centroid={'x': centroid_x,
-                      'batch': torch.arange(repeats * data.num_graphs, device=device).repeat_interleave(n_centroids)},
+                      'batch': torch.arange(repeats * n_graphs, device=device).repeat_interleave(n_centroids)},
 
             base__to__base={
                 'edge_index': data.edge_index.repeat(1, repeats) +
@@ -229,14 +138,13 @@ class HybridModel(torch.nn.Module):
                 'edge_weight': node_mask.permute(0, 2, 1).reshape(-1)
             },
             centroid__to__centroid={
-                'edge_index': idx.repeat(1, data.num_graphs * repeats) +
-                              (torch.arange(data.num_graphs * repeats, device=device) * n_centroids).repeat_interleave(
+                'edge_index': idx.repeat(1, n_graphs * repeats) +
+                              (torch.arange(n_graphs * repeats, device=device) * n_centroids).repeat_interleave(
                                   idx.shape[1]),
                 'edge_attr': None,
                 'edge_weight': None
             }
         )
-        # ----------------------------------------------------------------------------------
 
         base_embeddings, centroid_embeddings = self.hetero_gnn(
             data,
@@ -246,21 +154,22 @@ class HybridModel(torch.nn.Module):
         base_embedding = self.jk(base_embeddings)
         centroid_embedding = self.jk(centroid_embeddings)
 
-        if self.target == 'base':
-            node_embedding = base_embedding.reshape(repeats, nnodes, base_embedding.shape[-1])
-            if self.inter_ensemble_pool == 'mean':
-                node_embedding = torch.mean(node_embedding, dim=0)
-            elif self.inter_ensemble_pool == 'max':
-                node_embedding = torch.max(node_embedding, dim=0).values
-            elif self.inter_ensemble_pool == 'cat':
-                node_embedding = node_embedding.permute(1, 0, 2).reshape(nnodes, repeats * node_embedding.shape[-1])
-            else:
-                raise NotImplementedError
-            node_embedding = self.inter_pred_head(node_embedding)
-            graph_embedding = self.intra_graph_pool(node_embedding, getattr(data, self.graph_pool_idx))
-            graph_embedding = self.intra_pred_head(graph_embedding)
-        else:
-            raise NotImplementedError
+        graph_embeddings = []
+
+        if self.target in ['base', 'both']:
+            base_embedding = base_embedding.reshape(repeats, nnodes, base_embedding.shape[-1])
+            base_embedding = self.inter_ensemble_pool(base_embedding)
+            base_embedding = self.inter_base_pred_head(base_embedding)
+            graph_embedding = self.intra_graph_pool(base_embedding, getattr(data, self.graph_pool_idx))
+            graph_embeddings.append(graph_embedding)
+        if self.target in ['centroid', 'both']:
+            centroid_embedding = centroid_embedding.reshape(repeats, n_graphs * n_centroids, centroid_embedding.shape[-1])
+            centroid_embedding = self.inter_ensemble_pool(centroid_embedding)
+            centroid_embedding = self.inter_cent_pred_head(centroid_embedding)
+            graph_embedding = self.intra_graph_pool(centroid_embedding, new_data['centroid']['batch'][:n_graphs * n_centroids])
+            graph_embeddings.append(graph_embedding)
+
+        graph_embedding = self.intra_pred_head(torch.cat(graph_embeddings, dim=1))
 
         # get auxloss
         if self.training and self.auxloss is not None:

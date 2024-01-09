@@ -29,6 +29,19 @@ def get_graph_pooling(graph_pooling):
     return pool, graph_pool_idx
 
 
+def inter_ensemble_pooling(embeddings: torch.Tensor, inter_pool: str):
+    n_ensemble, n_entries, n_features = embeddings.shape
+    if inter_pool == 'mean':
+        embeddings = torch.mean(embeddings, dim=0)
+    elif inter_pool == 'max':
+        embeddings = torch.max(embeddings, dim=0).values
+    elif inter_pool == 'cat':
+        embeddings = embeddings.permute(1, 0, 2).reshape(n_entries, n_ensemble * n_features)
+    else:
+        raise NotImplementedError
+    return embeddings
+
+
 def jumping_knowledge(embeddings: List[torch.Tensor], jk: str):
     if jk is None:
         embedding = embeddings[-1]

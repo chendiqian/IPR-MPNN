@@ -92,12 +92,18 @@ def get_model(args, device):
             hetero_mpnn is not None and \
             sampler is not None:
 
-        intra_pred_head = MLP(in_channels=args.hetero.hidden,
+        intra_pred_head = MLP(in_channels=-1,
                               hidden_channels=args.hetero.hidden,
                               out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'],
                               num_layers=args.hybrid_model.intra_pred_layer,
                               norm=None)
-        inter_pred_head = MLP(
+        inter_base_pred_head = MLP(
+            in_channels=-1,
+            hidden_channels=args.hetero.hidden,
+            out_channels=args.hetero.hidden,
+            num_layers=args.hybrid_model.inter_pred_layer,
+            norm=None)
+        inter_cent_pred_head = MLP(
             in_channels=-1,
             hidden_channels=args.hetero.hidden,
             out_channels=args.hetero.hidden,
@@ -115,7 +121,8 @@ def get_model(args, device):
             jk=args.hybrid_model.jk,
             target=args.hybrid_model.target,
             intra_pred_head=intra_pred_head,
-            inter_pred_head=inter_pred_head,
+            inter_base_pred_head=inter_base_pred_head,
+            inter_cent_pred_head=inter_cent_pred_head,
             intra_graph_pool=args.hybrid_model.intra_graph_pool,
             inter_ensemble_pool=args.hybrid_model.inter_ensemble_pool,
             auxloss_dict=args.auxloss if hasattr(args, 'auxloss') and args.auxloss is not None else None
