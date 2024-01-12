@@ -75,6 +75,7 @@ def get_model(args, device):
             norm=args.hetero.norm,
             activation=args.hetero.activation,
             use_res=args.hetero.residual,
+            delay=args.hetero.delay if hasattr(args.hetero, 'delay') else 0,
             aggr=args.hetero.aggr,
             parallel=args.hetero.parallel,
         )

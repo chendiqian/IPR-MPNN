@@ -1,7 +1,7 @@
-import warnings
 from collections import defaultdict
-from typing import Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional
 
+from numpy import argsort, unique, cumsum, split
 import torch
 from torch import Tensor
 from torch.nn import ModuleList, functional as F
@@ -9,7 +9,6 @@ from torch_geometric.nn import MessagePassing, MLP, Linear
 from torch_geometric.nn.conv.hetero_conv import group
 from torch_geometric.nn.module_dict import ModuleDict
 from torch_geometric.typing import EdgeType, NodeType, Adj
-from torch_geometric.utils.hetero import check_add_self_loops
 
 from models.nn_utils import residual
 
@@ -17,75 +16,78 @@ from models.nn_utils import residual
 class HeteroConv(torch.nn.Module):
     def __init__(
         self,
-        convs: Dict[EdgeType, Tuple[MessagePassing, int]],
+        typed_convs: Dict[Tuple[EdgeType, str], Tuple[MessagePassing, int]],
+        delay: Optional[int] = 0,
         aggr: Optional[str] = "sum",
     ):
         super().__init__()
 
-        for edge_type, (module, _) in convs.items():
-            check_add_self_loops(module, [edge_type])
+        # order them
+        edge_types = []
+        ranks = []
+        for (etype, tmp), (_, rank) in typed_convs.items():
+            edge_types.append((etype, tmp))
+            ranks.append(rank)
 
-        src_node_types = set([key[0] for key in convs.keys()])
-        dst_node_types = set([key[-1] for key in convs.keys()])
-        if len(src_node_types - dst_node_types) > 0:
-            warnings.warn(
-                f"There exist node types ({src_node_types - dst_node_types}) "
-                f"whose representations do not get updated during message "
-                f"passing as they do not occur as destination type in any "
-                f"edge type. This may lead to unexpected behavior.")
-
-        self.convs = ModuleDict({'__'.join(k): v[0] for k, v in convs.items()})
-        conv_rank = {'__'.join(k): v[1] for k, v in convs.items()}
-        sorted_rank_value = sorted(set(conv_rank.values()))  # small value has high priority
+        # sort the ranks
+        rank_sort_idx = argsort(ranks)
+        _, rank_counts = unique(ranks, return_counts=True)
+        split_rank_sort_idx = split(rank_sort_idx, cumsum(rank_counts)[:-1])
 
         self.ranked_convs = ModuleList([])
-        for i, rank in enumerate(sorted_rank_value):
+        for blk in split_rank_sort_idx:
             module_dict = ModuleDict({})
-            for k, v in conv_rank.items():
-                if v == rank:
-                    module_dict[k] = self.convs[k]
+            for idx in blk:
+                etype, tmp = edge_types[idx]
+                module_dict['__'.join([*etype, tmp])] = typed_convs[(etype, tmp)][0]
             self.ranked_convs.append(module_dict)
 
+        self.delay = delay
         self.aggr = aggr
-
-    def reset_parameters(self):
-        r"""Resets all learnable parameters of the module."""
-        # for conv in self.convs.values():
-        #     conv.reset_parameters()
-        raise NotImplementedError
 
     def forward(
         self,
-        x_dict: Dict[NodeType, Tensor],
+        list_x_dict: List[Dict[NodeType, Tensor]],
         edge_index_dict: Dict[EdgeType, Adj],
         edge_attr_dict: Dict[EdgeType, Tensor],
         edge_weight_dict: Dict[EdgeType, Tensor],
         batch_dict: Dict[NodeType, Tensor],
-    ) -> Dict[NodeType, Tensor]:
-        for cur_rank, cur_convs in enumerate(self.ranked_convs):
+    ):
+        new_x_dict = {k: None for k in list_x_dict[-1].keys()}
+        for cur_convs in self.ranked_convs:
             out_dict = defaultdict(list)
-            for edge_type, edge_index in edge_index_dict.items():
-                src, rel, dst = edge_type
-                str_edge_type = '__'.join(edge_type)
+            for edge_tmp, conv in cur_convs.items():
+                src, rel, dst, temp = edge_tmp.split('__')
+                edge_type = (src, rel, dst)
 
-                if str_edge_type not in cur_convs:
-                    continue
+                if temp == 'delay':
+                    if self.delay and len(list_x_dict) >= self.delay + 1:
+                        x_src = list_x_dict[-(self.delay + 1)][src]
+                        x_dst = list_x_dict[-(self.delay + 1)][dst]
+                    else:
+                        continue
+                else:
+                    x_src = new_x_dict[src] if new_x_dict[src] is not None else list_x_dict[-1][src]
+                    x_dst = new_x_dict[dst] if new_x_dict[dst] is not None else list_x_dict[-1][dst]
 
-                conv = cur_convs[str_edge_type]
-                out = conv((x_dict[src], x_dict[dst]),
-                           edge_index,
+                out = conv((x_src, x_dst),
+                           edge_index_dict[edge_type],
                            edge_attr_dict.get(edge_type, None),
                            edge_weight_dict.get(edge_type, None),
                            batch_dict[dst])
-                out_dict[dst].append(out)
+                out_dict[edge_type].append(out)
 
-            for key, value in out_dict.items():
-                x_dict[key] = group(value, self.aggr)
+            # inter-delay tensors must be aggregated with shape-preserving aggr func
+            # otherwise shapes mismatch as earlier layers have no delayed input
+            merged_src_out_dict = defaultdict(list)
+            for (src, rel, dst), tensors in out_dict.items():
+                merged_dst = torch.stack(tensors, dim=0).mean(0) if len(tensors) > 1 else tensors[0]
+                merged_src_out_dict[dst].append(merged_dst)
 
-        return x_dict
+            for key, value in merged_src_out_dict.items():
+                new_x_dict[key] = group(value, self.aggr)
 
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(num_relations={len(self.convs)})'
+        return new_x_dict
 
 
 class HeteroGINEConv(MessagePassing):
@@ -164,6 +166,7 @@ class HeteroGNN(torch.nn.Module):
                  norm,
                  activation,
                  use_res,
+                 delay,
                  aggr,
                  parallel):
         super(HeteroGNN, self).__init__()
@@ -185,15 +188,20 @@ class HeteroGNN(torch.nn.Module):
         for layer in range(num_conv_layers):
             self.gnn_convs.append(
                 HeteroConv({
-                    ('base', 'to', 'base'):
+                    (('base', 'to', 'base'), 'current'):
                         (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2b),
-                    ('base', 'to', 'centroid'):
+                    (('base', 'to', 'centroid'), 'current'):
                         (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2c),
-                    ('centroid', 'to', 'centroid'):
+                    (('base', 'to', 'centroid'), 'delay'):
+                        (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2c),
+                    (('centroid', 'to', 'centroid'), 'current'):
                         (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2c),
-                    ('centroid', 'to', 'base'):
+                    (('centroid', 'to', 'base'), 'current'):
+                        (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2b),
+                    (('centroid', 'to', 'base'), 'delay'):
                         (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2b),
                 },
+                    delay=delay,
                     aggr=aggr))
 
     def forward(self, old_data, data, has_edge_attr):
@@ -204,18 +212,19 @@ class HeteroGNN(torch.nn.Module):
         repeats = batch_dict['base'].shape[0] // x_dict['base'].shape[0]
         x_dict['base'] = self.atom_encoder(old_data).repeat(repeats, 1)
 
-        base_embeddings, centroid_embeddings = [], []
+        list_x_dict = [x_dict]
 
         for i in range(self.num_layers):
-            h1 = x_dict
-            h2 = self.gnn_convs[i](x_dict, edge_index_dict, edge_attr_dict, edge_weight_dict, batch_dict)
+            h1 = list_x_dict[-1]
+            h2 = self.gnn_convs[i](list_x_dict, edge_index_dict, edge_attr_dict, edge_weight_dict, batch_dict)
             keys = h2.keys()
             if self.use_res:
-                x_dict = {k: residual(h1[k], F.gelu(h2[k])) for k in keys}
+                new_x_dict = {k: residual(h1[k], F.gelu(h2[k])) for k in keys}
             else:
-                x_dict = {k: F.gelu(h2[k]) for k in keys}
-            x_dict = {k: F.dropout(x_dict[k], p=self.dropout, training=self.training) for k in keys}
-            base_embeddings.append(x_dict['base'])
-            centroid_embeddings.append(x_dict['centroid'])
+                new_x_dict = {k: F.gelu(h2[k]) for k in keys}
+            new_x_dict = {k: F.dropout(new_x_dict[k], p=self.dropout, training=self.training) for k in keys}
+            list_x_dict.append(new_x_dict)
 
+        base_embeddings = [xd['base'] for xd in list_x_dict]
+        centroid_embeddings = [xd['centroid'] for xd in list_x_dict]
         return base_embeddings, centroid_embeddings
