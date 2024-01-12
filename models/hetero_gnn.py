@@ -62,8 +62,9 @@ class HeteroConv(torch.nn.Module):
 
                 if temp == 'delay':
                     if self.delay and len(list_x_dict) >= self.delay + 1:
+                        # from some previous src, but current dst
                         x_src = list_x_dict[-(self.delay + 1)][src]
-                        x_dst = list_x_dict[-(self.delay + 1)][dst]
+                        x_dst = new_x_dict[dst] if new_x_dict[dst] is not None else list_x_dict[-1][dst]
                     else:
                         continue
                 else:
