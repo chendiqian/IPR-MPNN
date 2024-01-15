@@ -18,7 +18,7 @@ from data.data_preprocess import AugmentWithPartition, AugmentWithDumbAttr
 from data.planarsatpairsdataset import PlanarSATPairsDataset
 from data.utils import Config, AttributedDataLoader, get_all_split_idx, separate_data
 
-NUM_WORKERS = 1
+NUM_WORKERS = 0
 
 DATASET = (ZINC,
            WebKB,
