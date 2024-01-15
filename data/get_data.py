@@ -1,4 +1,5 @@
 import os
+import torch
 from functools import partial
 from typing import List, Optional
 
@@ -8,6 +9,8 @@ from torch_geometric.datasets import (ZINC, WebKB,
                                       GNNBenchmarkDataset,
                                       HeterophilousGraphDataset)
 from torch_geometric.loader import DataLoader as PyGDataLoader
+from torch_geometric.loader import PrefetchLoader
+
 from torch_geometric.transforms import (Compose,
                                         AddRandomWalkPE,
                                         AddLaplacianEigenvectorPE,
@@ -17,6 +20,8 @@ from torch_geometric.transforms import (Compose,
 from data.data_preprocess import AugmentWithPartition, AugmentWithDumbAttr
 from data.planarsatpairsdataset import PlanarSATPairsDataset
 from data.utils import Config, AttributedDataLoader, get_all_split_idx, separate_data
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 NUM_WORKERS = 0
 
@@ -109,9 +114,9 @@ def get_data(args: Config, force_subset):
             val_set = [val_set]
             test_set = [test_set]
 
-        train_loaders = [AttributedDataLoader(loader=dataloader(t), std=std, task=task) for i, t in enumerate(train_set)]
-        val_loaders = [AttributedDataLoader(loader=dataloader(t), std=std, task=task) for i, t in enumerate(val_set)]
-        test_loaders = [AttributedDataLoader(loader=dataloader(t), std=std, task=task) for i, t in enumerate(test_set)]
+        train_loaders = [AttributedDataLoader(loader=PrefetchLoader(dataloader(t), device=device), std=std, task=task) for i, t in enumerate(train_set)]
+        val_loaders = [AttributedDataLoader(loader=PrefetchLoader(dataloader(t), device=device), std=std, task=task) for i, t in enumerate(val_set)]
+        test_loaders = [AttributedDataLoader(loader=PrefetchLoader(dataloader(t), device=device), std=std, task=task) for i, t in enumerate(test_set)]
     else:  # for plots
         assert isinstance(train_set, DATASET)
         train_loaders = AttributedDataLoader(loader=dataloader(train_set), std=std, task=task)
