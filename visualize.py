@@ -6,6 +6,7 @@ import networkx as nx
 import numpy as np
 import seaborn as sns
 import torch
+import warnings
 from matplotlib import pyplot as plt
 from torch_geometric.data import Batch
 from torch_geometric.utils import to_networkx
@@ -31,6 +32,10 @@ class Plotter:
         self.plot_score = hasattr(plot_args, 'score') and plot_args.score
         self.plot_graph = hasattr(plot_args, 'graph') and plot_args.graph
 
+        for key in plot_args:
+            if key not in ['mask', 'score', 'graph', 'plot_folder']:
+                warnings.warn(f'Key {key} is not a valid plotting option.')
+
     def __call__(self, epoch, train_loader, val_loader, model, wandb):
         if epoch % self.plot_every == 0:
             self.visualize(epoch, train_loader, val_loader, model, wandb)
@@ -45,7 +50,7 @@ class Plotter:
         val_data = next(iter(val_loader.loader))
 
         data_dict = {
-            # 'train': train_data.to(self.device),
+            'train': train_data.to(self.device),
             'val': val_data.to(self.device)
         }
 
@@ -76,18 +81,18 @@ class Plotter:
                         axs[ens * n_samples + ns].set_axis_off()
                         sns.heatmap(mask, cbar=False, vmin=vmin, vmax=vmax, ax=axs[ens * n_samples + ns],
                                     linewidths=0.1, linecolor='yellow')
-                        axs[ens * n_samples + ns].title.set_text(f'ens{ens}, ns{ns}')
+                        axs[ens * n_samples + ns].title.set_text(f'phase {phase} ens{ens}, ns{ns}')
 
                 fig.colorbar(axs[0].collections[0], cax=axs[-1])
 
                 if self.plot_folder is not None:
                     path = os.path.join(self.plot_folder, f'masks_epoch{epoch}_{phase}.png')
                     fig.savefig(path, bbox_inches='tight')
-                    wandb.log({"plot_mask": wandb.Image(path)}, step=epoch)
+                    wandb.log({f"plot_mask_phase_{phase}": wandb.Image(path)}, step=epoch)
                 else:
                     tmp_path = f'msk_{epoch}_{phase}_{"".join(re_split(r"[ :.-]", str(datetime.now())))}.png'
                     fig.savefig(tmp_path, bbox_inches='tight')
-                    wandb.log({"plot_mask": wandb.Image(tmp_path)}, step=epoch)
+                    wandb.log({f"plot_mask_phase_{phase}": wandb.Image(tmp_path)}, step=epoch)
                     os.unlink(tmp_path)
 
                 plt.close(fig)
@@ -110,18 +115,18 @@ class Plotter:
                     axs[ens].set_axis_off()
                     sns.heatmap(mask, cbar=False, vmin=vmin, vmax=vmax, ax=axs[ens],
                                 linewidths=0.1, linecolor='yellow')
-                    axs[ens].title.set_text(f'ens{ens}')
+                    axs[ens].title.set_text(f'phase {phase} ens{ens}')
 
                 fig.colorbar(axs[0].collections[0], cax=axs[-1])
 
                 if self.plot_folder is not None:
                     path = os.path.join(self.plot_folder, f'scores_epoch{epoch}_{phase}.png')
                     fig.savefig(path, bbox_inches='tight')
-                    wandb.log({"plot_score": wandb.Image(path)}, step=epoch)
+                    wandb.log({f"plot_score_phase_{phase}": wandb.Image(path)}, step=epoch)
                 else:
                     tmp_path = f'sc_{epoch}_{phase}_{"".join(re_split(r"[ :.-]", str(datetime.now())))}.png'
                     fig.savefig(tmp_path, bbox_inches='tight')
-                    wandb.log({"plot_score": wandb.Image(tmp_path)}, step=epoch)
+                    wandb.log({f"plot_score_phase_{phase}": wandb.Image(tmp_path)}, step=epoch)
                     os.unlink(tmp_path)
 
                 plt.close(fig)
@@ -150,7 +155,7 @@ class Plotter:
                                                  node_color=mask[ns, :, ens],
                                                  ax=axs[ens, ns],
                                                  node_size=4500 // g.num_nodes)  # empirical number
-                            axs[ens, ns].title.set_text(f'ens{ens}, ns{ns}')
+                            axs[ens, ns].title.set_text(f'phase {phase}, ens{ens}, ns{ns}')
                 else:
                     # more than 1 cluster per node
                     fig, axs = plt.subplots(ncols=n_centroids,
@@ -170,7 +175,7 @@ class Plotter:
                                                      edgecolors='k',
                                                      ax=axs[row_id, kl],
                                                      node_size=4500 // g.num_nodes)  # empirical number
-                                axs[row_id, kl].title.set_text(f'ens{ens}, ns{ns}, centroid{kl}')
+                                axs[row_id, kl].title.set_text(f'phase {phase}, ens{ens}, ns{ns}, centroid{kl}')
 
                 if self.plot_folder is not None:
                     fig.savefig(
@@ -179,4 +184,4 @@ class Plotter:
                         bbox_inches='tight')
                 plt.close(fig)
 
-                wandb.log({"plot_graph": wandb.Image(fig)}, step=epoch)
+                wandb.log({f"plot_graph_phase_{phase}": wandb.Image(fig)}, step=epoch)
