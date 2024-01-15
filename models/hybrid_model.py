@@ -83,7 +83,6 @@ class HybridModel(torch.nn.Module):
 
         # k-subset sampling is carried out as usual, in parallel
         node_mask, _ = self.sampler(scores) if self.training else self.sampler.validation(scores)
-        n_samples, nnodes, max_n_centroids, n_ensemble = node_mask.shape
         if for_plots_only:
             plot_node_mask = node_mask.detach().cpu().numpy()
             return None, plot_node_mask, plot_scores, None
