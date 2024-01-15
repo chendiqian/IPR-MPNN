@@ -72,13 +72,14 @@ class HybridModel(torch.nn.Module):
         if for_plots_only:
             plot_scores = scores.detach().clone().cpu().numpy()
 
-        # this is a mask indexing which centroids are kept in each ensemble
-        ens_idx_mask = torch.zeros(n_ensemble, max_n_centroids, dtype=torch.bool, device=device)
-        for i, n_ct in enumerate(self.list_num_centroids):
-            ens_idx_mask[i, :n_ct] = True
+        if min(self.list_num_centroids) < max_n_centroids:
+            # this is a mask indexing which centroids are kept in each ensemble
+            ens_idx_mask = torch.zeros(n_ensemble, max_n_centroids, dtype=torch.bool, device=device)
+            for i, n_ct in enumerate(self.list_num_centroids):
+                ens_idx_mask[i, :n_ct] = True
 
-        # for sampling, if there are less n_centroids than max possible num, then pad with a bias
-        scores[:, ~ens_idx_mask.t()] = scores[:, ~ens_idx_mask.t()] - LARGE_NUMBER
+            # for sampling, if there are less n_centroids than max possible num, then pad with a bias
+            scores[:, ~ens_idx_mask.t()] = scores[:, ~ens_idx_mask.t()] - LARGE_NUMBER
 
         # k-subset sampling is carried out as usual, in parallel
         node_mask, _ = self.sampler(scores) if self.training else self.sampler.validation(scores)
