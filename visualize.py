@@ -6,6 +6,7 @@ import networkx as nx
 import numpy as np
 import seaborn as sns
 import torch
+import warnings
 from matplotlib import pyplot as plt
 from torch_geometric.data import Batch
 from torch_geometric.utils import to_networkx
@@ -30,6 +31,10 @@ class Plotter:
         self.plot_mask = hasattr(plot_args, 'mask') and plot_args.mask
         self.plot_score = hasattr(plot_args, 'score') and plot_args.score
         self.plot_graph = hasattr(plot_args, 'graph') and plot_args.graph
+
+        for key in plot_args:
+            if key not in ['mask', 'score', 'graph', 'plot_folder']:
+                warnings.warn(f'Key {key} is not a valid plotting option.')
 
     def __call__(self, epoch, train_loader, val_loader, model, wandb):
         if epoch % self.plot_every == 0:
