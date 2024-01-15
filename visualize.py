@@ -33,7 +33,7 @@ class Plotter:
         self.plot_graph = hasattr(plot_args, 'graph') and plot_args.graph
 
         for key in plot_args:
-            if key not in ['mask', 'score', 'graph', 'plot_folder']:
+            if key not in ['mask', 'score', 'graph', 'plot_folder', 'plot_every']:
                 warnings.warn(f'Key {key} is not a valid plotting option.')
 
     def __call__(self, epoch, train_loader, val_loader, model, wandb):
