@@ -18,7 +18,8 @@ from data.get_data import get_data
 from data.utils import IsBetter
 from data.utils import Config, args_canonize, args_unify
 from models.get_model import get_model
-from trainer import Trainer, Plotter
+from trainer import Trainer
+from visualize import Plotter
 
 
 def args_parser():
