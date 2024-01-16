@@ -42,6 +42,9 @@ def main(args, wandb):
         with open(os.path.join(log_folder_name, 'config.yaml'), 'w') as outfile:
             yaml.dump(args.to_dict(), outfile, default_flow_style=False)
 
+    # log wandb config
+    wandb.config.update(args)
+
     logging.basicConfig(level=logging.INFO)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     logging.info(f'Using device {device}')
@@ -75,7 +78,24 @@ def main(args, wandb):
             logging.info(f'===========starting {_run}th run, {_fold}th fold=================')
             model = get_model(args, device)
             best_model = copy.deepcopy(model.state_dict())
-            optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+
+            if args.wd_params == 'downstream':
+                no_wd = []
+                wd = []
+                for name, param in model.named_parameters():
+                    if 'hetero_gnn' in name or 'inter' in name or 'intra' in name:
+                        wd.append(param)
+                    else:
+                        no_wd.append(param)
+            else:
+                wd = model.parameters()
+                no_wd = []
+
+            # optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+            optimizer = optim.Adam([{'params': no_wd, 'weight_decay': 0.},
+                                    {'params': wd, 'weight_decay': args.weight_decay}],
+                                   lr=args.lr)
+            
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                              mode=SCHEDULER_MODE[TASK_TYPE_DICT[args.dataset.lower()]],
                                                              factor=0.5, patience=50, min_lr=1.e-5)
@@ -88,6 +108,10 @@ def main(args, wandb):
 
                 with torch.no_grad():
                     val_loss, val_metric = trainer.test(val_loader, model, scheduler)
+
+                if hasattr(args, 'log_test') and args.log_test:
+                    with torch.no_grad():
+                        test_loss, test_metric = trainer.test(test_loader, model, scheduler)
 
                 with torch.no_grad():
                     plotter(epoch, plot_train_loader, plot_val_loader, model, wandb)
@@ -107,9 +131,12 @@ def main(args, wandb):
 
                 log_dict = {'train_loss': train_loss,
                             'val_loss': val_loss,
+                            'test_loss': test_loss if (hasattr(args, 'log_test') and args.log_test) else 0.,
                             'train_metric': train_metric,
                             'val_metric': val_metric,
+                            'test_metric': test_metric if (hasattr(args, 'log_test') and args.log_test) else 0.,
                             'lr': scheduler.optimizer.param_groups[0]["lr"]}
+                
                 pbar.set_postfix(log_dict)
                 wandb.log(log_dict)
 
