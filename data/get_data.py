@@ -13,11 +13,10 @@ from torch_geometric.loader import PrefetchLoader
 
 from torch_geometric.transforms import (Compose,
                                         AddRandomWalkPE,
-                                        AddLaplacianEigenvectorPE,
                                         ToUndirected,
                                         AddRemainingSelfLoops)
 
-from data.data_preprocess import AugmentWithPartition, AugmentWithDumbAttr
+from data.data_preprocess import AugmentWithPartition, AugmentWithDumbAttr, AddLaplacianEigenvectorPE
 from data.planarsatpairsdataset import PlanarSATPairsDataset
 from data.utils import Config, AttributedDataLoader, get_all_split_idx, separate_data
 
@@ -71,7 +70,7 @@ def get_pretransform(args: Config, extra_pretransforms: Optional[List] = None):
     if hasattr(args.encoder, 'rwse'):
         pretransform.append(AddRandomWalkPE(args.encoder.rwse.kernel, 'pestat_RWSE'))
     if hasattr(args.encoder, 'lap'):
-        pretransform.append(AddLaplacianEigenvectorPE(args.encoder.lap.max_freqs, 'EigVecs', is_undirected=True))
+        pretransform.append(AddLaplacianEigenvectorPE(args.encoder.lap.max_freqs, is_undirected=True))
     if (hasattr(args, 'auxloss') and hasattr(args.auxloss, 'partition')) or hasattr(args.encoder, 'partition'):
         pretransform.append(AugmentWithPartition(args.scorer_model.num_centroids))
 
