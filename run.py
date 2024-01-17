@@ -79,7 +79,7 @@ def main(args, wandb):
             model = get_model(args, device)
             best_model = copy.deepcopy(model.state_dict())
 
-            if args.wd_params == 'downstream':
+            if hasattr(args, 'wd_params') and args.wd_params == 'downstream':
                 no_wd = []
                 wd = []
                 for name, param in model.named_parameters():
