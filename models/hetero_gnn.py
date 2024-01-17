@@ -173,12 +173,14 @@ class HeteroGATv2Conv(MessagePassing):
         self.mlp = MLP([-1] + [hid_dim] * num_mlp_layers, norm=norm, act=act)
 
     def forward(self, x, edge_index, edge_attr, edge_weight=None, batch=None):
+        # a heuristic whether src are same type as dst. might fail
+        is_hetero = x[0].shape[0] != x[1].shape[1]
         H, C = self.heads, self.hid_dim
 
         x_l = self.lin_l(x[0]).view(-1, H, C)
         x_r = self.lin_r(x[1]).view(-1, H, C)
 
-        if self.add_self_loops and x_l.shape[0] == x_r.shape[0]:
+        if self.add_self_loops and not is_hetero:
             num_nodes = x_l.shape[0]
             edge_index, edge_attr = remove_self_loops(
                 edge_index, edge_attr)
@@ -193,12 +195,15 @@ class HeteroGATv2Conv(MessagePassing):
         # propagate_type: (x: PairTensor, alpha: Tensor)
         out = self.propagate(edge_index, x=(x_l, x_r), alpha=alpha, edge_weight=edge_weight)
 
+        if is_hetero:
+            out = out + x_r
+
         if self.concat:
             out = out.view(-1, self.heads * self.hid_dim)
         else:
             out = out.mean(dim=1)
 
-        return self.mlp(out)
+        return self.mlp(out, batch)
 
     def edge_update(self, x_j: Tensor,
                     x_i: Tensor,
@@ -223,8 +228,10 @@ class HeteroGATv2Conv(MessagePassing):
 
     def message(self, x_j: Tensor, alpha: Tensor, edge_weight: Tensor=None) -> Tensor:
         if edge_weight is not None and edge_weight.ndim < 2:
-            edge_weight = edge_weight[:, None]
-        m = x_j * alpha.unsqueeze(-1)
+            edge_weight = edge_weight[:, None, None]
+        # alpha: E x H
+        # x_j: E x H x C
+        m = x_j * alpha[:, None]
         return m * edge_weight if edge_weight is not None else m
 
 
@@ -273,6 +280,8 @@ class HeteroSAGEConv(MessagePassing):
 class HeteroGNN(torch.nn.Module):
     def __init__(self,
                  conv,
+                 b2c_conv,
+                 c2b_conv,
                  c2c_conv,
                  atom_encoder_handler,
                  bond_encoder_handler,
@@ -307,6 +316,8 @@ class HeteroGNN(torch.nn.Module):
             return f
 
         f_conv = conv_distributor(conv)
+        f_b2c_conv = conv_distributor(b2c_conv)
+        f_c2b_conv = conv_distributor(c2b_conv)
         f_c2c_conv = conv_distributor(c2c_conv)
 
         b2b, b2c, c2c, c2b = (0, 0, 0, 0) if parallel else (1, 0, 0, 1)
@@ -318,15 +329,15 @@ class HeteroGNN(torch.nn.Module):
                     (('base', 'to', 'base'), 'current'):
                         (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2b),
                     (('base', 'to', 'centroid'), 'current'):
-                        (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), b2c),
+                        (f_b2c_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), b2c),
                     (('base', 'to', 'centroid'), 'delay'):
-                        (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), b2c),
+                        (f_b2c_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), b2c),
                     (('centroid', 'to', 'centroid'), 'current'):
                         (f_c2c_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2c),
                     (('centroid', 'to', 'base'), 'current'):
-                        (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), c2b),
+                        (f_c2b_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), c2b),
                     (('centroid', 'to', 'base'), 'delay'):
-                        (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), c2b),
+                        (f_c2b_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), c2b),
                 },
                     delay=delay,
                     # aggr across different heterogeneity, e.g., cent and base to base
