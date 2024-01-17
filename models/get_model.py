@@ -66,6 +66,7 @@ def get_model(args, device):
     if hasattr(args, 'hetero') and args.hetero is not None:
         hetero_mpnn = HeteroGNN(
             conv=args.hetero.conv,
+            c2c_conv=args.hetero.c2c if hasattr(args.hetero, 'c2c') else args.hetero.conv,
             atom_encoder_handler=get_atom_encoder_handler,
             bond_encoder_handler=get_bond_encoder_handler,
             hid_dim=args.hetero.hidden,
