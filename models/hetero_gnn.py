@@ -99,8 +99,8 @@ class HeteroConv(torch.nn.Module):
 
 
 class HeteroGINEConv(MessagePassing):
-    def __init__(self, hid_dim, edge_encoder, num_mlp_layers, norm, act):
-        super(HeteroGINEConv, self).__init__(aggr="add")
+    def __init__(self, hid_dim, edge_encoder, num_mlp_layers, norm, act, aggr='add'):
+        super(HeteroGINEConv, self).__init__(aggr=aggr)
 
         self.lin_src = Linear(-1, hid_dim)
         self.lin_dst = Linear(-1, hid_dim)
@@ -241,8 +241,8 @@ class HeteroMLP(torch.nn.Module):
 
 
 class HeteroSAGEConv(MessagePassing):
-    def __init__(self, hid_dim, edge_encoder, num_mlp_layers, norm, act):
-        super(HeteroSAGEConv, self).__init__(aggr="mean")
+    def __init__(self, hid_dim, edge_encoder, num_mlp_layers, norm, act, aggr='mean'):
+        super(HeteroSAGEConv, self).__init__(aggr=aggr)
 
         self.lin_src = Linear(-1, hid_dim)
         self.lin_dst = Linear(-1, hid_dim)
@@ -313,21 +313,23 @@ class HeteroGNN(torch.nn.Module):
         self.gnn_convs = torch.nn.ModuleList()
         for layer in range(num_conv_layers):
             self.gnn_convs.append(
+                # use GNN's default neighborhood aggr, while between centroid and base we use mean aggr
                 HeteroConv({
                     (('base', 'to', 'base'), 'current'):
                         (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2b),
                     (('base', 'to', 'centroid'), 'current'):
-                        (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2c),
+                        (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), b2c),
                     (('base', 'to', 'centroid'), 'delay'):
-                        (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2c),
+                        (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), b2c),
                     (('centroid', 'to', 'centroid'), 'current'):
                         (f_c2c_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2c),
                     (('centroid', 'to', 'base'), 'current'):
-                        (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2b),
+                        (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), c2b),
                     (('centroid', 'to', 'base'), 'delay'):
-                        (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2b),
+                        (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), c2b),
                 },
                     delay=delay,
+                    # aggr across different heterogeneity, e.g., cent and base to base
                     aggr=aggr))
 
     def forward(self, old_data, data, has_edge_attr):
