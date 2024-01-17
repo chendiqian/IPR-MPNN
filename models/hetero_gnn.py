@@ -1,6 +1,7 @@
 from collections import defaultdict
 from typing import List, Dict, Tuple, Optional, Union
 
+from functools import partial
 import torch
 from numpy import argsort, unique, cumsum, split
 from torch import Tensor
@@ -305,6 +306,8 @@ class HeteroGNN(torch.nn.Module):
         def conv_distributor(cv):
             if cv == 'gine':
                 f = HeteroGINEConv
+            elif cv == 'gine_mean':
+                f = partial(HeteroGINEConv, aggr='mean')
             elif cv == 'sage':
                 f = HeteroSAGEConv
             elif cv == 'mlp':
@@ -329,15 +332,15 @@ class HeteroGNN(torch.nn.Module):
                     (('base', 'to', 'base'), 'current'):
                         (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2b),
                     (('base', 'to', 'centroid'), 'current'):
-                        (f_b2c_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), b2c),
+                        (f_b2c_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2c),
                     (('base', 'to', 'centroid'), 'delay'):
-                        (f_b2c_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), b2c),
+                        (f_b2c_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2c),
                     (('centroid', 'to', 'centroid'), 'current'):
                         (f_c2c_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2c),
                     (('centroid', 'to', 'base'), 'current'):
-                        (f_c2b_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), c2b),
+                        (f_c2b_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2b),
                     (('centroid', 'to', 'base'), 'delay'):
-                        (f_c2b_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation, aggr='mean'), c2b),
+                        (f_c2b_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2b),
                 },
                     delay=delay,
                     # aggr across different heterogeneity, e.g., cent and base to base
