@@ -105,7 +105,7 @@ class HeteroGINEConv(MessagePassing):
 
         self.lin_src = Linear(-1, hid_dim)
         self.lin_dst = Linear(-1, hid_dim)
-        self.edge_encoder = edge_encoder
+        self.edge_encoder = torch.nn.Sequential(edge_encoder, Linear(-1, hid_dim))
         self.mlp = MLP([hid_dim] * (num_mlp_layers + 1), norm=norm, act=act)
         self.eps = torch.nn.Parameter(torch.Tensor([0.]))
 
@@ -170,7 +170,7 @@ class HeteroGATv2Conv(MessagePassing):
         self.att = Parameter(torch.empty(1, heads, hid_dim))
         glorot(self.att)
 
-        self.lin_edge = edge_encoder
+        self.lin_edge = torch.nn.Sequential(edge_encoder, Linear(-1, hid_dim))
         self.mlp = MLP([-1] + [hid_dim] * num_mlp_layers, norm=norm, act=act)
 
     def forward(self, x, edge_index, edge_attr, edge_weight=None, batch=None):
@@ -254,7 +254,7 @@ class HeteroSAGEConv(MessagePassing):
 
         self.lin_src = Linear(-1, hid_dim)
         self.lin_dst = Linear(-1, hid_dim)
-        self.edge_encoder = edge_encoder
+        self.edge_encoder = torch.nn.Sequential(edge_encoder, Linear(-1, hid_dim))
         self.mlp = MLP([hid_dim] * (num_mlp_layers + 1), norm=norm, act=act)
 
     def forward(self, x, edge_index, edge_attr, edge_weight=None, batch=None):
@@ -287,6 +287,7 @@ class HeteroGNN(torch.nn.Module):
                  atom_encoder_handler,
                  bond_encoder_handler,
                  hid_dim,
+                 centroid_hid_dim,
                  num_conv_layers,
                  num_mlp_layers,
                  dropout,
@@ -332,11 +333,11 @@ class HeteroGNN(torch.nn.Module):
                     (('base', 'to', 'base'), 'current'):
                         (f_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2b),
                     (('base', 'to', 'centroid'), 'current'):
-                        (f_b2c_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2c),
+                        (f_b2c_conv(centroid_hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2c),
                     (('base', 'to', 'centroid'), 'delay'):
-                        (f_b2c_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2c),
+                        (f_b2c_conv(centroid_hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), b2c),
                     (('centroid', 'to', 'centroid'), 'current'):
-                        (f_c2c_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2c),
+                        (f_c2c_conv(centroid_hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2c),
                     (('centroid', 'to', 'base'), 'current'):
                         (f_c2b_conv(hid_dim, bond_encoder_handler(), num_mlp_layers, norm, activation), c2b),
                     (('centroid', 'to', 'base'), 'delay'):

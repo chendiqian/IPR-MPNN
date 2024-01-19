@@ -72,6 +72,7 @@ def get_model(args, device):
             atom_encoder_handler=get_atom_encoder_handler,
             bond_encoder_handler=get_bond_encoder_handler,
             hid_dim=args.hetero.hidden,
+            centroid_hid_dim=args.hetero.cent_hiddden if hasattr(args.hetero, 'cent_hiddden') else args.hetero.hidden,
             num_conv_layers=args.hetero.num_conv_layers,
             num_mlp_layers=args.hetero.num_mlp_layers,
             dropout=args.hetero.dropout,
