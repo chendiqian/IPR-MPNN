@@ -156,27 +156,46 @@ class HybridModel(torch.nn.Module):
 
         graph_embeddings = []
 
-        if self.target in ['base', 'both']:
-            base_embedding = base_embedding.reshape(repeats, nnodes, base_embedding.shape[-1])
-            base_embedding = self.inter_ensemble_pool(base_embedding)
-            base_embedding = self.inter_base_pred_head(base_embedding)
-            graph_embedding = self.intra_graph_pool(base_embedding, getattr(data, self.graph_pool_idx))
-            graph_embeddings.append(graph_embedding)
-        if self.target in ['centroid', 'both']:
-            centroid_embedding = centroid_embedding.reshape(repeats, n_graphs * n_centroids, centroid_embedding.shape[-1])
-            centroid_embedding = self.inter_ensemble_pool(centroid_embedding)
-            centroid_embedding = self.inter_cent_pred_head(centroid_embedding)
-            graph_embedding = self.intra_graph_pool(centroid_embedding, new_data['centroid']['batch'][:n_graphs * n_centroids])
-            graph_embeddings.append(graph_embedding)
+        if type(self.intra_pred_head) == torch.nn.modules.container.ModuleList: # Only works for centroid embedding right now
+            if self.target != 'centroid':
+                raise NotImplementedError
+            
+            preds_list = []
+            
+            for head, centroid_embedding in zip(self.intra_pred_head, centroid_embeddings):
+                centroid_embedding = centroid_embedding.reshape(repeats, n_graphs * n_centroids, centroid_embedding.shape[-1])
+                centroid_embedding = self.inter_ensemble_pool(centroid_embedding)
+                centroid_embedding = self.intra_graph_pool(centroid_embedding, new_data['centroid']['batch'][:n_graphs * n_centroids])
+                centroid_embedding = head(centroid_embedding)
 
-        graph_embedding = self.intra_pred_head(torch.cat(graph_embeddings, dim=1))
+                preds_list.append(centroid_embedding)
 
-        # get auxloss
-        if self.training and self.auxloss is not None:
-            auxloss = self.auxloss(pool=self.intra_graph_pool,
-                                   graph_pool_idx=self.graph_pool_idx,
-                                   scores=scores, data=data)
+                auxloss = 0.
+
+            graph_embedding = torch.stack(preds_list, dim=0).mean(dim=0)
+            
         else:
-            auxloss = 0.
+            if self.target in ['base', 'both']:
+                base_embedding = base_embedding.reshape(repeats, nnodes, base_embedding.shape[-1])
+                base_embedding = self.inter_ensemble_pool(base_embedding)
+                base_embedding = self.inter_base_pred_head(base_embedding)
+                graph_embedding = self.intra_graph_pool(base_embedding, getattr(data, self.graph_pool_idx))
+                graph_embeddings.append(graph_embedding)
+            if self.target in ['centroid', 'both']:
+                centroid_embedding = centroid_embedding.reshape(repeats, n_graphs * n_centroids, centroid_embedding.shape[-1])
+                centroid_embedding = self.inter_ensemble_pool(centroid_embedding)
+                centroid_embedding = self.inter_cent_pred_head(centroid_embedding)
+                graph_embedding = self.intra_graph_pool(centroid_embedding, new_data['centroid']['batch'][:n_graphs * n_centroids])
+                graph_embeddings.append(graph_embedding)
+
+            graph_embedding = self.intra_pred_head(torch.cat(graph_embeddings, dim=1))
+
+            # get auxloss
+            if self.training and self.auxloss is not None:
+                auxloss = self.auxloss(pool=self.intra_graph_pool,
+                                    graph_pool_idx=self.graph_pool_idx,
+                                    scores=scores, data=data)
+            else:
+                auxloss = 0.
 
         return graph_embedding, plot_node_mask, plot_scores, auxloss

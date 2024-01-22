@@ -1,3 +1,5 @@
+import torch.nn as nn
+
 from torch_geometric.nn import MLP
 
 from data.const import DATASET_FEATURE_STAT_DICT, ENCODER_TYPE_DICT, GCN_CACHE
@@ -98,11 +100,16 @@ def get_model(args, device):
             hetero_mpnn is not None and \
             sampler is not None:
 
-        intra_pred_head = MLP(in_channels=-1,
+        intra_pred_head = nn.ModuleList([MLP(in_channels=-1,
+                              hidden_channels=args.hetero.hidden,
+                              out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'],
+                              num_layers=args.hybrid_model.intra_pred_layer,
+                              norm=None) for _ in range(args.hetero.num_conv_layers)]) if args.hybrid_model.intermediate_heads else MLP(in_channels=-1,
                               hidden_channels=args.hetero.hidden,
                               out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'],
                               num_layers=args.hybrid_model.intra_pred_layer,
                               norm=None)
+        
         inter_base_pred_head = MLP(
             in_channels=-1,
             hidden_channels=args.hetero.hidden,
