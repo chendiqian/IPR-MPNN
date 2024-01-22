@@ -175,7 +175,7 @@ class HeteroGATv2Conv(MessagePassing):
 
     def forward(self, x, edge_index, edge_attr, edge_weight=None, batch=None):
         # a heuristic whether src are same type as dst. might fail
-        is_hetero = x[0].shape[0] != x[1].shape[1]
+        is_hetero = x[0].shape[0] != x[1].shape[0]
         H, C = self.heads, self.hid_dim
 
         x_l = self.lin_l(x[0]).view(-1, H, C)
