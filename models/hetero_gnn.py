@@ -355,7 +355,7 @@ class HeteroGNN(torch.nn.Module):
         repeats = batch_dict['base'].shape[0] // x_dict['base'].shape[0]
         x_dict['base'] = self.atom_encoder(old_data).repeat(repeats, 1)
 
-        list_x_dict = [x_dict]
+        list_x_dict = []
 
         for i in range(self.num_layers):
             h1 = list_x_dict[-1]
