@@ -170,9 +170,6 @@ class HybridModel(torch.nn.Module):
 
                 preds_list.append(centroid_embedding)
 
-                auxloss = 0.
-
-            # graph_embedding = torch.stack(preds_list, dim=0).mean(dim=0)
             graph_embedding = preds_list
             
         else:
