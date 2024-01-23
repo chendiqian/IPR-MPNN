@@ -200,13 +200,13 @@ class GNNMultiEdgeset(torch.nn.Module):
 
         if self.centroid_aggr == 'mean':
             # mean aggr, but need to consider the different num nodes in each centroid
-            x = scatter_sum(self.proj_to_centroid(x) * flat_node_mask, batch, dim=0, dim_size=dim_size) / \
+            x = scatter_sum(F.gelu(self.proj_to_centroid(x)) * flat_node_mask, batch, dim=0, dim_size=dim_size) / \
                 (scatter_sum(flat_node_mask.detach(), batch, dim=0, dim_size=dim_size) + 1.e-7)
         elif self.centroid_aggr == 'max':
-            x = scatter_max(self.proj_to_centroid(x) * flat_node_mask, batch, dim=0, dim_size=dim_size)[0]
+            x = scatter_max(F.gelu(self.proj_to_centroid(x)) * flat_node_mask, batch, dim=0, dim_size=dim_size)[0]
         elif self.centroid_aggr in ['sum', 'add']:
             # sum aggr, but actually scaled by the number of graphs
-            x = scatter_mean(self.proj_to_centroid(x) * flat_node_mask, batch, dim=0, dim_size=dim_size)
+            x = scatter_mean(F.gelu(self.proj_to_centroid(x)) * flat_node_mask, batch, dim=0, dim_size=dim_size)
         else:
             raise NotImplementedError
 
