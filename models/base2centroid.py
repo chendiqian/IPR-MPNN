@@ -84,7 +84,6 @@ class GNNMultiEdgeset(torch.nn.Module):
                  atom_encoder_handler,
                  bond_encoder_handler,
                  hidden,
-                 centroid_hid_dim,
                  num_conv_layers,
                  num_mlp_layers,
                  out_feature,
@@ -102,7 +101,6 @@ class GNNMultiEdgeset(torch.nn.Module):
 
         self.convs = torch.nn.ModuleList()
         self.norms = torch.nn.ModuleList()
-        self.proj_to_centroid = torch.nn.Linear(hidden, centroid_hid_dim)
 
         for dim_in, dim_out in zip(dims[:-1], dims[1:]):
             # gin also in this case, edge_attr can be None
@@ -130,12 +128,7 @@ class GNNMultiEdgeset(torch.nn.Module):
             norm_params = inspect.signature(self.norms[0].forward).parameters
             self.supports_norm_batch = 'batch' in norm_params
 
-        self.mlp = MLP(in_channels=hidden,
-                       hidden_channels=hidden,
-                       out_channels=out_feature,
-                       num_layers=num_mlp_layers,
-                       act=activation,
-                       norm=norm)
+        self.mlp = MLP([hidden] * num_mlp_layers + [out_feature], act=activation, norm=norm)
 
     def forward(self, data, node_mask):
         device = data.x.device
@@ -200,13 +193,13 @@ class GNNMultiEdgeset(torch.nn.Module):
 
         if self.centroid_aggr == 'mean':
             # mean aggr, but need to consider the different num nodes in each centroid
-            x = scatter_sum(F.gelu(self.proj_to_centroid(x)) * flat_node_mask, batch, dim=0, dim_size=dim_size) / \
+            x = scatter_sum(x * flat_node_mask, batch, dim=0, dim_size=dim_size) / \
                 (scatter_sum(flat_node_mask.detach(), batch, dim=0, dim_size=dim_size) + 1.e-7)
         elif self.centroid_aggr == 'max':
-            x = scatter_max(F.gelu(self.proj_to_centroid(x)) * flat_node_mask, batch, dim=0, dim_size=dim_size)[0]
+            x = scatter_max(x * flat_node_mask, batch, dim=0, dim_size=dim_size)[0]
         elif self.centroid_aggr in ['sum', 'add']:
             # sum aggr, but actually scaled by the number of graphs
-            x = scatter_mean(F.gelu(self.proj_to_centroid(x)) * flat_node_mask, batch, dim=0, dim_size=dim_size)
+            x = scatter_mean(x * flat_node_mask, batch, dim=0, dim_size=dim_size)
         else:
             raise NotImplementedError
 

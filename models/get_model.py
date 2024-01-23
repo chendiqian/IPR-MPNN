@@ -54,10 +54,9 @@ def get_model(args, device):
             atom_encoder_handler=get_atom_encoder_handler,
             bond_encoder_handler=get_bond_encoder_handler,
             hidden=args.hetero.hidden,
-            centroid_hid_dim=args.hetero.cent_hidden if hasattr(args.hetero, 'cent_hidden') else args.hetero.hidden,
             num_conv_layers=args.base2centroid.num_conv_layers,
             num_mlp_layers=args.base2centroid.num_mlp_layers,
-            out_feature=args.hetero.hidden,
+            out_feature=args.hetero.cent_hidden if hasattr(args.hetero, 'cent_hidden') else args.hetero.hidden,
             norm=args.base2centroid.norm,
             activation=args.base2centroid.activation,
             dropout=args.base2centroid.dropout,
@@ -100,15 +99,19 @@ def get_model(args, device):
             hetero_mpnn is not None and \
             sampler is not None:
 
-        intra_pred_head = nn.ModuleList([MLP(in_channels=-1,
-                              hidden_channels=args.hetero.hidden,
-                              out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'],
-                              num_layers=args.hybrid_model.intra_pred_layer,
-                              norm=None) for _ in range(args.hetero.num_conv_layers)]) if args.hybrid_model.intermediate_heads else MLP(in_channels=-1,
-                              hidden_channels=args.hetero.hidden,
-                              out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'],
-                              num_layers=args.hybrid_model.intra_pred_layer,
-                              norm=None)
+        if hasattr(args.hybrid_model, 'intermediate_heads') and args.hybrid_model.intermediate_heads:
+            intra_pred_head = nn.ModuleList(
+                [MLP(in_channels=-1,
+                     hidden_channels=args.hetero.hidden,
+                     out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'],
+                     num_layers=args.hybrid_model.intra_pred_layer,
+                     norm=None) for _ in range(args.hetero.num_conv_layers)])
+        else:
+            intra_pred_head = MLP(in_channels=-1,
+                                  hidden_channels=args.hetero.hidden,
+                                  out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'],
+                                  num_layers=args.hybrid_model.intra_pred_layer,
+                                  norm=None)
         
         inter_base_pred_head = MLP(
             in_channels=-1,
