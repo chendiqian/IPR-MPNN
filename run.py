@@ -98,7 +98,7 @@ def main(args, wandb):
                                     {'params': wd, 'weight_decay': args.weight_decay}],
                                    lr=args.lr)
             
-            if hasattr(args, 'scheduler_type') and args.scheduler_type == "annealing_with_decay":
+            if hasattr(args, 'scheduler_type') and args.scheduler_type == "cos_with_warmup":
                 scheduler = get_cosine_schedule_with_warmup(optimizer=optimizer)
             else:
                 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
