@@ -1,12 +1,16 @@
-import torch.nn as nn
+from functools import partial
 
+import torch.nn as nn
 from torch_geometric.nn import MLP
 
 from data.const import DATASET_FEATURE_STAT_DICT, ENCODER_TYPE_DICT, GCN_CACHE
+from models.auxloss import get_auxloss
 from models.base2centroid import GNNMultiEdgeset
 from models.hetero_gnn import HeteroGNN
 from models.hybrid_model import HybridModel
 from models.my_encoders import get_bond_encoder, get_atom_encoder
+from models.nn_utils import get_graph_pooling, inter_ensemble_pooling, jumping_knowledge
+from models.prediction_head import Predictor
 from models.scorer_model import ScorerGNN
 from samplers.get_sampler import get_sampler
 
@@ -99,49 +103,60 @@ def get_model(args, device):
             hetero_mpnn is not None and \
             sampler is not None:
 
+        # Todo: enable this
+        if args.hybrid_model.intra_graph_pool == 'root':  # node prediction
+            assert args.hybrid_model.target == 'base', "Unable to use centroids"
+        intra_graph_pool_func, intra_graph_pool_attr = get_graph_pooling(args.hybrid_model.intra_graph_pool)
+
+        def get_prediction_head():  # a wrapper func
+            return Predictor(
+                pred_target=args.hybrid_model.target,
+                inter_ensemble_pool=partial(inter_ensemble_pooling,
+                                            inter_pool=args.hybrid_model.inter_ensemble_pool),
+                inter_base_pred_head=MLP(
+                    in_channels=-1,
+                    hidden_channels=args.hetero.hidden,
+                    out_channels=args.hetero.hidden,
+                    num_layers=args.hybrid_model.inter_pred_layer,
+                    norm=None) if args.hybrid_model.inter_pred_layer > 0 else nn.Identity(),
+                inter_cent_pred_head=MLP(
+                    in_channels=-1,
+                    hidden_channels=args.hetero.hidden,
+                    out_channels=args.hetero.hidden,
+                    num_layers=args.hybrid_model.inter_pred_layer,
+                    norm=None) if args.hybrid_model.inter_pred_layer > 0 else nn.Identity(),
+                intra_graph_pool=intra_graph_pool_func,
+                intra_pred_head=MLP(
+                    in_channels=-1,
+                    hidden_channels=args.hetero.hidden,
+                    out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'],
+                    num_layers=args.hybrid_model.intra_pred_layer,
+                    norm=None)
+            )
+
         if hasattr(args.hybrid_model, 'intermediate_heads') and args.hybrid_model.intermediate_heads:
-            intra_pred_head = nn.ModuleList(
-                [MLP(in_channels=-1,
-                     hidden_channels=args.hetero.hidden,
-                     out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'],
-                     num_layers=args.hybrid_model.intra_pred_layer,
-                     norm=None) for _ in range(args.hetero.num_conv_layers)])
+            pred_head = nn.ModuleList([get_prediction_head() for _ in range(args.hetero.num_conv_layers)])
         else:
-            intra_pred_head = MLP(in_channels=-1,
-                                  hidden_channels=args.hetero.hidden,
-                                  out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'],
-                                  num_layers=args.hybrid_model.intra_pred_layer,
-                                  norm=None)
-        
-        inter_base_pred_head = MLP(
-            in_channels=-1,
-            hidden_channels=args.hetero.hidden,
-            out_channels=args.hetero.hidden,
-            num_layers=args.hybrid_model.inter_pred_layer,
-            norm=None)
-        inter_cent_pred_head = MLP(
-            in_channels=-1,
-            hidden_channels=args.hetero.hidden,
-            out_channels=args.hetero.hidden,
-            num_layers=args.hybrid_model.inter_pred_layer,
-            norm=None)
+            pred_head = get_prediction_head()
+
+        auxloss_func = partial(
+            get_auxloss,
+            list_num_centroids=args.scorer_model.num_centroids,  # this is a list
+            auxloss_dict=args.auxloss,
+            pool=intra_graph_pool_func,
+            graph_pool_idx=intra_graph_pool_attr) if hasattr(args, 'auxloss') and args.auxloss is not None else None
 
         hybrid_model = HybridModel(
-            device=device,
             scorer_model=scorer_model,
             list_num_centroids=args.scorer_model.num_centroids,  # this is a list
             base2centroid_model=base2centroid_model,
             sampler=sampler,
             hetero_gnn=hetero_mpnn,
 
-            jk=args.hybrid_model.jk,
-            target=args.hybrid_model.target,
-            intra_pred_head=intra_pred_head,
-            inter_base_pred_head=inter_base_pred_head,
-            inter_cent_pred_head=inter_cent_pred_head,
-            intra_graph_pool=args.hybrid_model.intra_graph_pool,
-            inter_ensemble_pool=args.hybrid_model.inter_ensemble_pool,
-            auxloss_dict=args.auxloss if hasattr(args, 'auxloss') and args.auxloss is not None else None
+            jk_func=partial(jumping_knowledge, jk=args.hybrid_model.jk),
+            graph_pool_idx=intra_graph_pool_attr,
+            pred_head=pred_head,
+            auxloss_func=auxloss_func
         ).to(device)
         return hybrid_model
     else:
