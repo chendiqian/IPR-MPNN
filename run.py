@@ -21,6 +21,8 @@ from models.get_model import get_model
 from trainer import Trainer
 from visualize import Plotter
 
+from utils.schedulers import get_cosine_schedule_with_warmup
+
 
 def args_parser():
     parser = argparse.ArgumentParser('training')
@@ -96,9 +98,12 @@ def main(args, wandb):
                                     {'params': wd, 'weight_decay': args.weight_decay}],
                                    lr=args.lr)
             
-            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
-                                                             mode=SCHEDULER_MODE[TASK_TYPE_DICT[args.dataset.lower()]],
-                                                             factor=0.5, patience=args.scheduler_patience if hasattr(args, "scheduler_patience") else 50, min_lr=1.e-5)
+            if hasattr(args, 'scheduler_type') and args.scheduler_type == "annealing_with_decay":
+                scheduler = get_cosine_schedule_with_warmup(optimizer=optimizer)
+            else:
+                scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
+                                                                 mode=SCHEDULER_MODE[TASK_TYPE_DICT[args.dataset.lower()]],
+                                                                 factor=0.5, patience=args.scheduler_patience if hasattr(args, "scheduler_patience") else 50, min_lr=1.e-5)
 
             # wandb.watch(model, log='all', log_freq=1)
 
@@ -111,7 +116,7 @@ def main(args, wandb):
 
                 if hasattr(args, 'log_test') and args.log_test:
                     with torch.no_grad():
-                        test_loss, test_metric = trainer.test(test_loader, model, scheduler)
+                        test_loss, test_metric = trainer.test(test_loader, model, None)
 
                 with torch.no_grad():
                     plotter(epoch, plot_train_loader, plot_val_loader, model, wandb)
