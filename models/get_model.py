@@ -134,7 +134,8 @@ def get_model(args, device):
                     norm=None)
             )
 
-        if hasattr(args.hybrid_model, 'intermediate_heads') and args.hybrid_model.intermediate_heads:
+        if args.hybrid_model.jk == 'identity':
+            # we keep the intermediate embeddings un-aggregated, and need a head per tensor
             pred_head = nn.ModuleList([get_prediction_head() for _ in range(args.hetero.num_conv_layers)])
         else:
             pred_head = get_prediction_head()

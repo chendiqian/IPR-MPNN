@@ -57,6 +57,8 @@ def jumping_knowledge(embeddings: List[torch.Tensor], jk: str):
             embedding = torch.stack(embeddings, dim=0).max(dim=0).values
         except RuntimeError:  # in case shape error
             embedding = embeddings[-1]
+    elif jk == 'identity':
+        return embeddings
     else:
         raise NotImplementedError
     return embedding

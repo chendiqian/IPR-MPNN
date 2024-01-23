@@ -124,15 +124,18 @@ class HybridModel(torch.nn.Module):
             }
         )
 
-        base_embeddings, centroid_embeddings = self.hetero_gnn(
+        list_base_embeddings, list_centroid_embeddings = self.hetero_gnn(
             data,
             new_data,
             hasattr(data, 'edge_attr') and data.edge_attr is not None)
 
+        base_embedding = self.jk_func(list_base_embeddings)
+        centroid_embedding = self.jk_func(list_centroid_embeddings)
+
         if isinstance(self.pred_head, torch.nn.ModuleList):
+            assert isinstance(base_embedding, list) and isinstance(centroid_embedding, list)
             graph_embedding = []
-            
-            for head, n_emb, c_emb in zip(self.pred_head, base_embeddings, centroid_embeddings):
+            for head, n_emb, c_emb in zip(self.pred_head, base_embedding, centroid_embedding):
                 graph_embedding.append(
                     head(n_emb.reshape(repeats, nnodes, n_emb.shape[-1]),
                          c_emb.reshape(repeats, n_graphs * n_centroids, c_emb.shape[-1]),
@@ -140,9 +143,6 @@ class HybridModel(torch.nn.Module):
                          new_data['centroid']['batch'][:n_graphs * n_centroids])
                 )
         else:
-            base_embedding = self.jk_func(base_embeddings)
-            centroid_embedding = self.jk_func(centroid_embeddings)
-
             graph_embedding = self.pred_head(
                 base_embedding.reshape(repeats, nnodes, base_embedding.shape[-1]),
                 centroid_embedding.reshape(repeats, n_graphs * n_centroids, centroid_embedding.shape[-1]),
