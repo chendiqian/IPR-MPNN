@@ -48,7 +48,7 @@ class Trainer:
         return train_losses.item() / num_instances, train_metric
 
     @torch.no_grad()
-    def test(self, loader, model, scheduler):
+    def test(self, loader, model, scheduler, epoch=None):
         model.eval()
 
         val_losses = 0.
@@ -72,7 +72,7 @@ class Trainer:
         labels = torch.cat(labels, dim=0)
         val_metric = self.evaluator(labels, preds)
         if scheduler is not None:
-            scheduler.step(val_metric)
+            scheduler.step(epoch) if 'LambdaLR' in str(type(scheduler)) else scheduler.step(val_metric)
         return val_losses.item() / num_instances, val_metric
 
     def clear_stats(self):

@@ -116,7 +116,7 @@ def main(args, wandb):
 
                 if hasattr(args, 'log_test') and args.log_test:
                     with torch.no_grad():
-                        test_loss, test_metric = trainer.test(test_loader, model, None)
+                        test_loss, test_metric = trainer.test(test_loader, model, None, epoch)
 
                 with torch.no_grad():
                     plotter(epoch, plot_train_loader, plot_val_loader, model, wandb)
