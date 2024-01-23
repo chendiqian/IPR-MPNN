@@ -172,7 +172,8 @@ class HybridModel(torch.nn.Module):
 
                 auxloss = 0.
 
-            graph_embedding = torch.stack(preds_list, dim=0).mean(dim=0)
+            # graph_embedding = torch.stack(preds_list, dim=0).mean(dim=0)
+            graph_embedding = preds_list
             
         else:
             if self.target in ['base', 'both']:

@@ -99,7 +99,7 @@ def main(args, wandb):
                                    lr=args.lr)
             
             if hasattr(args, 'scheduler_type') and args.scheduler_type == "cos_with_warmup":
-                scheduler = get_cosine_schedule_with_warmup(optimizer=optimizer)
+                scheduler = get_cosine_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=args.scheduler_warmup if hasattr(args, "scheduler_warmup") else 5)
             else:
                 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                                  mode=SCHEDULER_MODE[TASK_TYPE_DICT[args.dataset.lower()]],

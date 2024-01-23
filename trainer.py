@@ -31,15 +31,19 @@ class Trainer:
 
             optimizer.zero_grad()
             outputs, _, _, auxloss = model(data)
-
-            loss = self.criterion(outputs, y)
+            if type(outputs) == list:
+                head_losses = [self.criterion(output, y) for output in outputs]
+                loss = torch.mean(torch.stack(head_losses))
+                preds.append(torch.stack(outputs, dim=0).detach().mean(dim=0))
+            else:
+                loss = self.criterion(outputs, y)
+                preds.append(outputs.detach())
             train_losses += loss.detach() * y.shape[0]
             loss = loss + auxloss
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0, error_if_nonfinite=True)
             optimizer.step()
 
-            preds.append(outputs.detach())
             labels.append(y)
 
         preds = torch.cat(preds, dim=0)
@@ -62,10 +66,15 @@ class Trainer:
             num_instances += y.shape[0]
 
             outputs, *_ = model(data)
-            loss = self.criterion(outputs, y)
+            if type(outputs) == list:
+                head_losses = [self.criterion(output, y) for output in outputs]
+                loss = torch.mean(torch.stack(head_losses))
+                preds.append(torch.stack(outputs, dim=0).detach().mean(dim=0))
+            else: 
+                loss = self.criterion(outputs, y)
+                preds.append(outputs.detach())
 
             val_losses += loss.detach() * y.shape[0]
-            preds.append(outputs.detach())
             labels.append(y)
 
         preds = torch.cat(preds, dim=0)
