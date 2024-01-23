@@ -191,12 +191,12 @@ class HybridModel(torch.nn.Module):
 
             graph_embedding = self.intra_pred_head(torch.cat(graph_embeddings, dim=1))
 
-            # get auxloss
-            if self.training and self.auxloss is not None:
-                auxloss = self.auxloss(pool=self.intra_graph_pool,
-                                    graph_pool_idx=self.graph_pool_idx,
-                                    scores=scores, data=data)
-            else:
-                auxloss = 0.
+        # get auxloss
+        if self.training and self.auxloss is not None:
+            auxloss = self.auxloss(pool=self.intra_graph_pool,
+                                graph_pool_idx=self.graph_pool_idx,
+                                scores=scores, data=data)
+        else:
+            auxloss = 0.
 
         return graph_embedding, plot_node_mask, plot_scores, auxloss
