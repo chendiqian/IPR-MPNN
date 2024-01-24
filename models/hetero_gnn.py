@@ -16,6 +16,7 @@ from torch_geometric.utils import (
     add_self_loops,
     remove_self_loops,
     softmax,
+    degree
 )
 
 from models.nn_utils import residual
@@ -278,6 +279,49 @@ class HeteroSAGEConv(MessagePassing):
         return aggr_out
 
 
+class HeteroGCNConv(MessagePassing):
+    def __init__(self, hid_dim, edge_encoder, num_mlp_layers, norm, act, *args):
+        super(HeteroGCNConv, self).__init__(aggr='sum')
+
+        self.lin_src = Linear(-1, hid_dim)
+        self.lin_dst = Linear(-1, hid_dim)
+        self.edge_encoder = torch.nn.Sequential(edge_encoder, Linear(-1, hid_dim))
+        self.mlp = MLP([hid_dim] * (num_mlp_layers + 1), norm=norm, act=act)
+
+    def forward(self, x, edge_index, edge_attr, edge_weight=None, batch=None):
+        is_hetero = x[0].shape[0] != x[1].shape[0]
+        x = (self.lin_src(x[0]), x[1])
+
+        if edge_attr is not None and self.edge_encoder is not None:
+            edge_attr = self.edge_encoder(edge_attr)
+
+        row, col = edge_index
+        deg_src = degree(row, x[0].shape[0], dtype=x[0].dtype)
+        deg_src_inv_sqrt = deg_src.pow(-0.5)
+        deg_src_inv_sqrt[deg_src_inv_sqrt == float('inf')] = 0
+
+        deg_dst = degree(col, x[1].shape[0], dtype=x[1].dtype)
+        deg_dst_inv_sqrt = deg_dst.pow(-0.5)
+        deg_dst_inv_sqrt[deg_dst_inv_sqrt == float('inf')] = 0
+
+        norm = deg_src_inv_sqrt[row] * deg_dst_inv_sqrt[col]
+
+        out = self.propagate(edge_index, x=x, edge_attr=edge_attr, norm=norm, edge_weight=edge_weight)
+
+        if is_hetero:
+            out = out + self.lin_dst(x[1])
+        return self.mlp(out, batch)
+
+    def message(self, x_j, edge_attr, norm, edge_weight):
+        if edge_weight is not None and edge_weight.ndim < 2:
+            edge_weight = edge_weight[:, None]
+        m = norm.view(-1, 1) * F.gelu(x_j + edge_attr if edge_attr is not None else x_j)
+        return m * edge_weight if edge_weight is not None else m
+
+    def update(self, aggr_out):
+        return aggr_out
+
+
 class HeteroGNN(torch.nn.Module):
     def __init__(self,
                  conv,
@@ -315,6 +359,8 @@ class HeteroGNN(torch.nn.Module):
                 f = HeteroMLP
             elif cv == 'gat':
                 f = HeteroGATv2Conv
+            elif cv == 'gcn':
+                f = HeteroGCNConv
             else:
                 raise NotImplementedError
             return f
