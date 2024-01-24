@@ -93,11 +93,6 @@ def main(args, wandb):
                 wd = model.parameters()
                 no_wd = []
 
-            # Count the total number of params, print in console and log on wandb
-            total_params = sum(p.numel() for p in model.parameters())
-            logging.info(f'Total number of params: {total_params}')
-            wandb.run.summary['total_params'] = total_params
-
             # optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
             optimizer = optim.Adam([{'params': no_wd, 'weight_decay': 0.},
                                     {'params': wd, 'weight_decay': args.weight_decay}],
@@ -159,6 +154,10 @@ def main(args, wandb):
             logging.info(f'Best val metric: {trainer.best_val_metric}')
             logging.info(f'test metric: {test_metric}')
             # logging.info(f'test metric ensemble: {test_metric_ensemble}')
+                # Count the total number of params, print in console and log on wandb
+            total_params = sum(p.numel() for p in model.parameters())
+            logging.info(f'Total number of params: {total_params}')
+            wandb.run.summary['total_params'] = total_params
 
             trainer.clear_stats()
 
