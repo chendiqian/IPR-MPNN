@@ -89,12 +89,26 @@ class GCNConvMultiEdgeset(torch.nn.Module):
         edge_embedding = self.bond_encoder(edge_attr) if edge_attr is not None else torch.zeros(1, 1, device=x.device,
                                                                                                 dtype=x.dtype)
 
-        row, col = edge_index
-
         if self.training:
             edge_embedding = edge_embedding.repeat(1, 1, 1, 1)
             repeats, choices, _, _ = edge_weight.shape
             unflatten_x = x.reshape(repeats, choices, -1, x.shape[-1])
+
+            self_loops = torch.arange(unflatten_x.shape[2], dtype=edge_index.dtype, device=edge_index.device)
+            self_loops = self_loops[None].repeat(2, 1)
+            edge_index = torch.cat([edge_index, self_loops], dim=1)
+            edge_embedding = torch.cat([edge_embedding,
+                                        edge_embedding.new_zeros((edge_embedding.shape[0],
+                                                                 edge_embedding.shape[1],
+                                                                 unflatten_x.shape[2],
+                                                                 edge_embedding.shape[3]))], dim=2)
+            edge_weight = torch.cat([edge_weight,
+                                     edge_weight.new_ones((repeats,
+                                                          choices,
+                                                          unflatten_x.shape[2],
+                                                          1))], dim=2)
+
+            row, col = edge_index
 
             deg_src = degree(row, unflatten_x.shape[2], dtype=x.dtype)
             deg_src_inv_sqrt = deg_src.pow(-0.5)
@@ -110,6 +124,16 @@ class GCNConvMultiEdgeset(torch.nn.Module):
             out = scatter_sum(message, edge_index[1], dim=2, dim_size=unflatten_x.shape[2])
             out = out.reshape(x.shape)
         else:
+            self_loops = torch.arange(x.shape[0], dtype=edge_index.dtype, device=edge_index.device)
+            self_loops = self_loops[None].repeat(2, 1)
+            edge_index = torch.cat([edge_index, self_loops], dim=1)
+            edge_embedding = torch.cat([edge_embedding,
+                                        edge_embedding.new_zeros((x.shape[0], edge_embedding.shape[1]))], dim=0)
+            edge_weight = torch.cat([edge_weight,
+                                     edge_weight.new_ones((x.shape[0], 1))], dim=0)
+
+            row, col = edge_index
+
             # cannot reshape x like that, as the number of edges per centroid / ensemble graph may vary
             deg_src = degree(row, x.shape[0], dtype=x.dtype)
             deg_src_inv_sqrt = deg_src.pow(-0.5)
