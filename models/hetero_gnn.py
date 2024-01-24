@@ -16,10 +16,9 @@ from torch_geometric.utils import (
     add_self_loops,
     remove_self_loops,
     softmax,
-    degree
 )
 
-from models.nn_utils import residual
+from models.nn_utils import residual, compute_gcn_norm, add_self_loop_multi_target
 
 
 class HeteroConv(torch.nn.Module):
@@ -295,17 +294,16 @@ class HeteroGCNConv(MessagePassing):
         if edge_attr is not None and self.edge_encoder is not None:
             edge_attr = self.edge_encoder(edge_attr)
 
-        row, col = edge_index
-        deg_src = degree(row, x[0].shape[0], dtype=x[0].dtype)
-        deg_src_inv_sqrt = deg_src.pow(-0.5)
-        deg_src_inv_sqrt[deg_src_inv_sqrt == float('inf')] = 0
+        if not is_hetero:
+            edge_index, edge_attr, edge_weight = add_self_loop_multi_target(
+                edge_index,
+                x[0].shape[0],
+                0,
+                edge_attr,
+                edge_weight
+            )
 
-        deg_dst = degree(col, x[1].shape[0], dtype=x[1].dtype)
-        deg_dst_inv_sqrt = deg_dst.pow(-0.5)
-        deg_dst_inv_sqrt[deg_dst_inv_sqrt == float('inf')] = 0
-
-        norm = deg_src_inv_sqrt[row] * deg_dst_inv_sqrt[col]
-
+        norm = compute_gcn_norm(edge_index, (x[0].shape[0], x[1].shape[0]))
         out = self.propagate(edge_index, x=x, edge_attr=edge_attr, norm=norm, edge_weight=edge_weight)
 
         if is_hetero:
