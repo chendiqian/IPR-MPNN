@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import List, Dict, Tuple, Optional, Union
+from typing import List, Dict, Tuple, Optional
 
 from functools import partial
 import torch
@@ -12,11 +12,7 @@ from torch_geometric.nn.conv.hetero_conv import group
 from torch_geometric.nn.inits import glorot
 from torch_geometric.nn.module_dict import ModuleDict
 from torch_geometric.typing import EdgeType, NodeType, Adj, OptTensor
-from torch_geometric.utils import (
-    add_self_loops,
-    remove_self_loops,
-    softmax,
-)
+from torch_geometric.utils import softmax
 
 from models.nn_utils import residual, compute_gcn_norm, add_self_loop_multi_target
 
@@ -149,8 +145,6 @@ class HeteroGATv2Conv(MessagePassing):
             concat: bool = True,
             negative_slope: float = 0.2,
             dropout: float = 0.0,
-            add_self_loops: bool = True,
-            fill_value: Union[float, Tensor, str] = 'mean',
             bias: bool = True,
             **kwargs,
     ):
@@ -161,8 +155,6 @@ class HeteroGATv2Conv(MessagePassing):
         self.concat = concat
         self.negative_slope = negative_slope
         self.dropout = dropout
-        self.add_self_loops = add_self_loops
-        self.fill_value = fill_value
 
         self.lin_l = Linear(-1, heads * hid_dim, bias=bias, weight_initializer='glorot')
         self.lin_r = Linear(-1, heads * hid_dim, bias=bias, weight_initializer='glorot')
@@ -170,7 +162,7 @@ class HeteroGATv2Conv(MessagePassing):
         self.att = Parameter(torch.empty(1, heads, hid_dim))
         glorot(self.att)
 
-        self.lin_edge = torch.nn.Sequential(edge_encoder, Linear(-1, hid_dim))
+        self.lin_edge = torch.nn.Sequential(edge_encoder, Linear(-1, heads * hid_dim))
         self.mlp = MLP([-1] + [hid_dim] * num_mlp_layers, norm=norm, act=act)
 
     def forward(self, x, edge_index, edge_attr, edge_weight=None, batch=None):
@@ -181,13 +173,18 @@ class HeteroGATv2Conv(MessagePassing):
         x_l = self.lin_l(x[0]).view(-1, H, C)
         x_r = self.lin_r(x[1]).view(-1, H, C)
 
-        if self.add_self_loops and not is_hetero:
-            num_nodes = x_l.shape[0]
-            edge_index, edge_attr = remove_self_loops(
-                edge_index, edge_attr)
-            edge_index, edge_attr = add_self_loops(
-                edge_index, edge_attr, fill_value=self.fill_value,
-                num_nodes=num_nodes)
+        if edge_attr is not None and self.lin_edge is not None:
+            edge_attr = self.lin_edge(edge_attr)
+            edge_attr = edge_attr.view(-1, H, C)
+
+        if not is_hetero:
+            edge_index, edge_attr, edge_weight = add_self_loop_multi_target(
+                edge_index,
+                x[0].shape[0],
+                0,
+                edge_attr,
+                edge_weight
+            )
 
         # edge_updater_type: (x: PairTensor, edge_attr: OptTensor)
         alpha = self.edge_updater(edge_index, x=(x_l, x_r),
@@ -214,11 +211,7 @@ class HeteroGATv2Conv(MessagePassing):
                     dim_size: Optional[int]) -> Tensor:
         x = x_i + x_j
 
-        if edge_attr is not None and self.lin_edge is not None:
-            if edge_attr.dim() == 1:
-                edge_attr = edge_attr.view(-1, 1)
-            edge_attr = self.lin_edge(edge_attr)
-            edge_attr = edge_attr.view(-1, self.heads, self.out_channels)
+        if edge_attr is not None:
             x = x + edge_attr
 
         x = F.leaky_relu(x, self.negative_slope)
