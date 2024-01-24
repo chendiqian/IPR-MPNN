@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.nn import Identity
 from torch_geometric.nn import MLP
 from torch_geometric.nn.resolver import normalization_resolver
-from torch_geometric.utils import subgraph
+from torch_geometric.utils import subgraph, degree
 from torch_scatter import scatter_sum, scatter_mean, scatter_max
 
 
@@ -77,6 +77,57 @@ class SAGEConvMultiEdgeset(torch.nn.Module):
         return out
 
 
+class GCNConvMultiEdgeset(torch.nn.Module):
+    def __init__(self, in_channel, out_channel, bond_encoder):
+        super(GCNConvMultiEdgeset, self).__init__()
+
+        self.lin = torch.nn.Linear(in_channel, out_channel, bias=True)
+        self.bond_encoder = bond_encoder
+
+    def forward(self, x, edge_index, edge_attr, edge_weight):
+        # 1, 1, nedges, features
+        edge_embedding = self.bond_encoder(edge_attr) if edge_attr is not None else torch.zeros(1, 1, device=x.device,
+                                                                                                dtype=x.dtype)
+
+        row, col = edge_index
+
+        if self.training:
+            edge_embedding = edge_embedding.repeat(1, 1, 1, 1)
+            repeats, choices, _, _ = edge_weight.shape
+            unflatten_x = x.reshape(repeats, choices, -1, x.shape[-1])
+
+            deg_src = degree(row, unflatten_x.shape[2], dtype=x.dtype)
+            deg_src_inv_sqrt = deg_src.pow(-0.5)
+            deg_src_inv_sqrt[deg_src_inv_sqrt == float('inf')] = 0
+            deg_dst = degree(col, unflatten_x.shape[2], dtype=x.dtype)
+            deg_dst_inv_sqrt = deg_dst.pow(-0.5)
+            deg_dst_inv_sqrt[deg_dst_inv_sqrt == float('inf')] = 0
+            norm = deg_src_inv_sqrt[row] * deg_dst_inv_sqrt[col]
+
+            message = F.gelu(unflatten_x[:, :, edge_index[0], :] + edge_embedding) * norm[None, None, :, None]
+            message = message * edge_weight
+            # must be sum
+            out = scatter_sum(message, edge_index[1], dim=2, dim_size=unflatten_x.shape[2])
+            out = out.reshape(x.shape)
+        else:
+            # cannot reshape x like that, as the number of edges per centroid / ensemble graph may vary
+            deg_src = degree(row, x.shape[0], dtype=x.dtype)
+            deg_src_inv_sqrt = deg_src.pow(-0.5)
+            deg_src_inv_sqrt[deg_src_inv_sqrt == float('inf')] = 0
+            deg_dst = degree(col, x.shape[0], dtype=x.dtype)
+            deg_dst_inv_sqrt = deg_dst.pow(-0.5)
+            deg_dst_inv_sqrt[deg_dst_inv_sqrt == float('inf')] = 0
+            norm = deg_src_inv_sqrt[row] * deg_dst_inv_sqrt[col]
+
+            message = F.gelu(x[edge_index[0], :] + edge_embedding) * norm[:, None]
+            message = message * edge_weight
+            # must be sum
+            out = scatter_sum(message, edge_index[1], dim=0, dim_size=x.shape[0])
+
+        out = self.lin(out)
+        return out
+
+
 class GNNMultiEdgeset(torch.nn.Module):
     def __init__(self,
                  conv,
@@ -118,6 +169,10 @@ class GNNMultiEdgeset(torch.nn.Module):
             elif conv == 'sage':
                 self.convs.append(
                     SAGEConvMultiEdgeset(dim_in, dim_out, bond_encoder_handler())
+                )
+            elif conv == 'gcn':
+                self.convs.append(
+                    GCNConvMultiEdgeset(dim_in, dim_out, bond_encoder_handler())
                 )
             else:
                 raise NotImplementedError
