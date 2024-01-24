@@ -8,6 +8,8 @@ from torch_geometric.nn.resolver import normalization_resolver
 from torch_geometric.utils import subgraph, degree
 from torch_scatter import scatter_sum, scatter_mean, scatter_max
 
+from models.nn_utils import add_self_loop_multi_target, compute_gcn_norm
+
 
 class GINEConvMultiEdgeset(torch.nn.Module):
     def __init__(self, mlp, bond_encoder):
@@ -94,29 +96,14 @@ class GCNConvMultiEdgeset(torch.nn.Module):
             repeats, choices, _, _ = edge_weight.shape
             unflatten_x = x.reshape(repeats, choices, -1, x.shape[-1])
 
-            self_loops = torch.arange(unflatten_x.shape[2], dtype=edge_index.dtype, device=edge_index.device)
-            self_loops = self_loops[None].repeat(2, 1)
-            edge_index = torch.cat([edge_index, self_loops], dim=1)
-            edge_embedding = torch.cat([edge_embedding,
-                                        edge_embedding.new_zeros((edge_embedding.shape[0],
-                                                                 edge_embedding.shape[1],
-                                                                 unflatten_x.shape[2],
-                                                                 edge_embedding.shape[3]))], dim=2)
-            edge_weight = torch.cat([edge_weight,
-                                     edge_weight.new_ones((repeats,
-                                                          choices,
-                                                          unflatten_x.shape[2],
-                                                          1))], dim=2)
+            edge_index, edge_embedding, edge_weight = add_self_loop_multi_target(
+                edge_index,
+                unflatten_x.shape[2],
+                2,
+                edge_embedding,
+                edge_weight)
 
-            row, col = edge_index
-
-            deg_src = degree(row, unflatten_x.shape[2], dtype=x.dtype)
-            deg_src_inv_sqrt = deg_src.pow(-0.5)
-            deg_src_inv_sqrt[deg_src_inv_sqrt == float('inf')] = 0
-            deg_dst = degree(col, unflatten_x.shape[2], dtype=x.dtype)
-            deg_dst_inv_sqrt = deg_dst.pow(-0.5)
-            deg_dst_inv_sqrt[deg_dst_inv_sqrt == float('inf')] = 0
-            norm = deg_src_inv_sqrt[row] * deg_dst_inv_sqrt[col]
+            norm = compute_gcn_norm(edge_index, unflatten_x.shape[2])
 
             message = F.gelu(unflatten_x[:, :, edge_index[0], :] + edge_embedding) * norm[None, None, :, None]
             message = message * edge_weight
@@ -124,24 +111,14 @@ class GCNConvMultiEdgeset(torch.nn.Module):
             out = scatter_sum(message, edge_index[1], dim=2, dim_size=unflatten_x.shape[2])
             out = out.reshape(x.shape)
         else:
-            self_loops = torch.arange(x.shape[0], dtype=edge_index.dtype, device=edge_index.device)
-            self_loops = self_loops[None].repeat(2, 1)
-            edge_index = torch.cat([edge_index, self_loops], dim=1)
-            edge_embedding = torch.cat([edge_embedding,
-                                        edge_embedding.new_zeros((x.shape[0], edge_embedding.shape[1]))], dim=0)
-            edge_weight = torch.cat([edge_weight,
-                                     edge_weight.new_ones((x.shape[0], 1))], dim=0)
+            edge_index, edge_embedding, edge_weight = add_self_loop_multi_target(
+                edge_index,
+                x.shape[0],
+                0,
+                edge_embedding,
+                edge_weight)
 
-            row, col = edge_index
-
-            # cannot reshape x like that, as the number of edges per centroid / ensemble graph may vary
-            deg_src = degree(row, x.shape[0], dtype=x.dtype)
-            deg_src_inv_sqrt = deg_src.pow(-0.5)
-            deg_src_inv_sqrt[deg_src_inv_sqrt == float('inf')] = 0
-            deg_dst = degree(col, x.shape[0], dtype=x.dtype)
-            deg_dst_inv_sqrt = deg_dst.pow(-0.5)
-            deg_dst_inv_sqrt[deg_dst_inv_sqrt == float('inf')] = 0
-            norm = deg_src_inv_sqrt[row] * deg_dst_inv_sqrt[col]
+            norm = compute_gcn_norm(edge_index, x.shape[0])
 
             message = F.gelu(x[edge_index[0], :] + edge_embedding) * norm[:, None]
             message = message * edge_weight

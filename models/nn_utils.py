@@ -1,7 +1,8 @@
-from typing import List
+from typing import List, Optional, Union, Tuple
 
 import torch
 from torch_geometric.nn import global_mean_pool, global_add_pool, global_max_pool
+from torch_geometric.utils import degree
 
 
 def residual(y_old: torch.Tensor, y_new: torch.Tensor) -> torch.Tensor:
@@ -62,3 +63,42 @@ def jumping_knowledge(embeddings: List[torch.Tensor], jk: str):
     else:
         raise NotImplementedError
     return embedding
+
+
+def add_self_loop_multi_target(edge_index: torch.Tensor,
+                               num_nodes: int,
+                               dim: int,
+                               edge_attr: Optional[torch.Tensor] = None,
+                               edge_weight: Optional[torch.Tensor] = None):
+    self_loops = torch.arange(num_nodes, dtype=edge_index.dtype, device=edge_index.device)
+    self_loops = self_loops[None].repeat(2, 1)
+    edge_index = torch.cat([edge_index, self_loops], dim=1)
+
+    if edge_attr is not None:
+        _shape = torch.tensor(edge_attr.shape).cpu().tolist()
+        _shape[dim] = num_nodes
+        padding = edge_attr.new_zeros(_shape)
+        edge_attr = torch.cat([edge_attr, padding], dim=dim)
+
+    if edge_weight is not None:
+        _shape = torch.tensor(edge_weight.shape).cpu().tolist()
+        _shape[dim] = num_nodes
+        padding = edge_weight.new_ones(_shape)
+        edge_weight = torch.cat([edge_weight, padding], dim=dim)
+
+    return edge_index, edge_attr, edge_weight
+
+
+def compute_gcn_norm(edge_index: torch.Tensor, num_nodes: Union[int, Tuple]):
+    if isinstance(num_nodes, int):
+        num_nodes = (num_nodes, num_nodes)
+
+    row, col = edge_index
+    deg_src = degree(row, num_nodes[0], dtype=torch.float)
+    deg_src_inv_sqrt = deg_src.pow(-0.5)
+    deg_src_inv_sqrt[deg_src_inv_sqrt == float('inf')] = 0
+    deg_dst = degree(col, num_nodes[1], dtype=torch.float)
+    deg_dst_inv_sqrt = deg_dst.pow(-0.5)
+    deg_dst_inv_sqrt[deg_dst_inv_sqrt == float('inf')] = 0
+    norm = deg_src_inv_sqrt[row] * deg_dst_inv_sqrt[col]
+    return norm
