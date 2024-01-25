@@ -33,7 +33,7 @@ class Trainer:
             outputs, _, _, auxloss = model(data)
             if type(outputs) == list:
                 head_losses = [self.criterion(output, y) for output in outputs]
-                loss = torch.mean(torch.stack(head_losses))
+                loss = torch.sum(torch.stack(head_losses))
                 preds.append(torch.stack(outputs, dim=0).detach().mean(dim=0))
             else:
                 loss = self.criterion(outputs, y)
@@ -68,7 +68,7 @@ class Trainer:
             outputs, *_ = model(data)
             if type(outputs) == list:
                 head_losses = [self.criterion(output, y) for output in outputs]
-                loss = torch.mean(torch.stack(head_losses))
+                loss = torch.sum(torch.stack(head_losses))
                 preds.append(torch.stack(outputs, dim=0).detach().mean(dim=0))
             else: 
                 loss = self.criterion(outputs, y)
