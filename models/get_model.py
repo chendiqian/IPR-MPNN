@@ -180,8 +180,8 @@ def get_model(args, device):
                     act=args.gnn.activation)
             )
 
-        from torch_geometric.nn.models import GCN, GIN, GAT, GraphSAGE
-        from models.plain_gnn import GINE, PlainGNN   # they didn't provide this in PyG models
+        from torch_geometric.nn.models import GIN
+        from models.plain_gnn import GCN, GINE, GraphSAGE, PlainGNN   # they didn't provide this in PyG models
 
         if args.gnn.conv == 'gcn':
             func = GCN
@@ -189,26 +189,24 @@ def get_model(args, device):
             func = GIN
         elif args.gnn.conv == 'gine':
             func = GINE
-        elif args.gnn.conv == 'gat':
-            func = GAT
         elif args.gnn.conv == 'sage':
             func = GraphSAGE
         else:
             raise NotImplementedError
 
         gnn = func(
-            in_channels=-1,
+            in_channels=args.gnn.hidden,
             hidden_channels=args.gnn.hidden,
             num_layers=args.gnn.num_conv_layers,
             out_channels=args.gnn.hidden,
             dropout=args.gnn.dropout,
             act=args.gnn.activation,
             norm=args.gnn.norm,
-            jk=args.gnn.jk
+            jk=args.gnn.jk,
+            edge_encoder=get_bond_encoder_handler,
         )
 
-        plain_gnn = PlainGNN(get_bond_encoder_handler(),
-                             get_atom_encoder_handler(),
+        plain_gnn = PlainGNN(get_atom_encoder_handler(),
                              predictor,
                              gnn).to(device)
         return plain_gnn
