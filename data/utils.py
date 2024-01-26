@@ -124,7 +124,7 @@ def args_canonize(args: Union[Config, Dict]):
 
 
 def args_unify(args: Config):
-    if args.scorer_model is not None and args.sampler is not None:
+    if hasattr(args, 'scorer_model') and args.scorer_model is not None and hasattr(args, 'sampler') and args.sampler is not None:
         if isinstance(args.scorer_model.num_centroids, int):
             assert args.sampler.sample_k <= args.scorer_model.num_centroids
             args.scorer_model.num_centroids = [args.scorer_model.num_centroids] * args.sampler.num_ensemble
