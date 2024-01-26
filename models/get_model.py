@@ -2,14 +2,16 @@ from functools import partial
 
 import torch.nn as nn
 from torch_geometric.nn import MLP
+from torch_geometric.nn.models import GIN
 
-from data.const import DATASET_FEATURE_STAT_DICT, ENCODER_TYPE_DICT, GCN_CACHE
+from data.const import DATASET_FEATURE_STAT_DICT, ENCODER_TYPE_DICT
 from models.auxloss import get_auxloss
 from models.base2centroid import GNNMultiEdgeset
 from models.hetero_gnn import HeteroGNN
 from models.hybrid_model import HybridModel
 from models.my_encoders import get_bond_encoder, get_atom_encoder
 from models.nn_utils import get_graph_pooling, inter_ensemble_pooling, jumping_knowledge
+from models.plain_gnn import GCN, GINE, GraphSAGE, PlainGNN
 from models.prediction_head import Predictor
 from models.scorer_model import ScorerGNN
 from samplers.get_sampler import get_sampler
@@ -32,20 +34,41 @@ def get_model(args, device):
 
     # scorer model
     if hasattr(args, 'scorer_model') and args.scorer_model is not None:
+        if args.scorer_model.num_conv_layers > 0:
+            if args.scorer_model.conv == 'gcn':
+                func = GCN
+            elif args.scorer_model.conv == 'gin':
+                func = GIN
+            elif args.scorer_model.conv == 'gine':
+                func = GINE
+            elif args.scorer_model.conv == 'sage':
+                func = GraphSAGE
+            else:
+                raise NotImplementedError
+
+            gnn = func(
+                in_channels=args.hetero.hidden,
+                hidden_channels=args.scorer_model.hidden,
+                num_layers=args.scorer_model.num_conv_layers,
+                out_channels=args.scorer_model.hidden,
+                dropout=args.scorer_model.dropout,
+                act=args.scorer_model.activation,
+                norm=args.scorer_model.norm,
+                jk=None,
+                edge_encoder=get_bond_encoder_handler,
+            )
+        else:
+            gnn = None
+
         scorer_model = ScorerGNN(
-            conv=args.scorer_model.conv,
-            conv_cache=GCN_CACHE[args.dataset.lower()],
+            gnn=gnn,
             atom_encoder_handler=get_atom_encoder_handler,
-            bond_encoder_handler=get_bond_encoder_handler,
-            in_feature=args.hetero.hidden,
             hidden=args.scorer_model.hidden,
-            num_conv_layers=args.scorer_model.num_conv_layers,
             num_mlp_layers=args.scorer_model.num_mlp_layers,
             max_num_centroids=max(args.scorer_model.num_centroids),  # this is a list
             num_ensemble=args.sampler.num_ensemble,
             norm=args.scorer_model.norm,
             activation=args.scorer_model.activation,
-            dropout=args.scorer_model.dropout
         )
     else:
         scorer_model = None
@@ -179,9 +202,6 @@ def get_model(args, device):
                     norm=None,
                     act=args.gnn.activation)
             )
-
-        from torch_geometric.nn.models import GIN
-        from models.plain_gnn import GCN, GINE, GraphSAGE, PlainGNN   # they didn't provide this in PyG models
 
         if args.gnn.conv == 'gcn':
             func = GCN
