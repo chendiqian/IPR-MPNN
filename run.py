@@ -21,7 +21,7 @@ from models.get_model import get_model
 from trainer import Trainer
 from visualize import Plotter
 
-from utils.schedulers import get_cosine_schedule_with_warmup
+from data.schedulers import get_cosine_schedule_with_warmup
 
 
 def args_parser():
