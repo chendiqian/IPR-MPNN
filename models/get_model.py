@@ -19,7 +19,7 @@ def get_model(args, device):
     # get atom encoder and bond encoder
     def get_atom_encoder_handler(partition_encoder = False):
         return get_atom_encoder(ENCODER_TYPE_DICT[args.dataset.lower()]['atom'],
-                                args.hetero.hidden,
+                                args.hetero.hidden if hasattr(args, 'hetero') else args.gnn.hidden,  # plain GNN
                                 DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['node'],
                                 args.encoder.lap if hasattr(args.encoder, 'lap') else None,
                                 args.encoder.rwse if hasattr(args.encoder, 'rwse') else None,
@@ -27,7 +27,7 @@ def get_model(args, device):
 
     def get_bond_encoder_handler():
         return get_bond_encoder(ENCODER_TYPE_DICT[args.dataset.lower()]['bond'],
-                                args.hetero.hidden,
+                                args.hetero.hidden if hasattr(args, 'hetero') else args.gnn.hidden,  # plain GNN
                                 DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['edge'],)
 
     # scorer model
@@ -162,4 +162,53 @@ def get_model(args, device):
         return hybrid_model
     else:
         # normal GNN
-        raise NotImplementedError
+        graph_pool_func, graph_pool_attr = get_graph_pooling(args.gnn.graph_pool)
+
+        # reuse the class, but deactivate inter-ensemble part
+        predictor = Predictor(
+                pred_target='base',
+                inter_ensemble_pool=nn.Identity(),
+                inter_base_pred_head=nn.Identity(),
+                inter_cent_pred_head=nn.Identity(),
+                intra_graph_pool=graph_pool_func,
+                intra_pred_head=MLP(
+                    in_channels=-1,
+                    hidden_channels=args.gnn.hidden,
+                    out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'],
+                    num_layers=args.gnn.pred_layer,
+                    norm=None,
+                    act=args.gnn.activation)
+            )
+
+        from torch_geometric.nn.models import GCN, GIN, GAT, GraphSAGE
+        from models.plain_gnn import GINE, PlainGNN   # they didn't provide this in PyG models
+
+        if args.gnn.conv == 'gcn':
+            func = GCN
+        elif args.gnn.conv == 'gin':
+            func = GIN
+        elif args.gnn.conv == 'gine':
+            func = GINE
+        elif args.gnn.conv == 'gat':
+            func = GAT
+        elif args.gnn.conv == 'sage':
+            func = GraphSAGE
+        else:
+            raise NotImplementedError
+
+        gnn = func(
+            in_channels=-1,
+            hidden_channels=args.gnn.hidden,
+            num_layers=args.gnn.num_conv_layers,
+            out_channels=args.gnn.hidden,
+            dropout=args.gnn.dropout,
+            act=args.gnn.activation,
+            norm=args.gnn.norm,
+            jk=args.gnn.jk
+        )
+
+        plain_gnn = PlainGNN(get_bond_encoder_handler(),
+                             get_atom_encoder_handler(),
+                             predictor,
+                             gnn).to(device)
+        return plain_gnn
