@@ -51,16 +51,17 @@ def main(args, wandb):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     logging.info(f'Using device {device}')
 
-    train_loaders, val_loaders, test_loaders = get_data(args, False)
+    train_loaders, val_loaders, test_loaders, task = get_data(args, False)
 
     # for visualization
     plotter = Plotter(device, args.plots if hasattr(args, 'plots') else None)
     if hasattr(args, 'plots') and args.plots is not None:
-        plot_train_loader, plot_val_loader, _ = get_data(args, True)
+        plot_train_loader, plot_val_loader, *_ = get_data(args, True)
     else:
         plot_train_loader, plot_val_loader = None, None
 
-    trainer = Trainer(criterion=CRITERION_DICT[args.dataset.lower()],
+    trainer = Trainer(task=task,
+                      criterion=CRITERION_DICT[args.dataset.lower()],
                       evaluator=Evaluator(TASK_TYPE_DICT[args.dataset.lower()]),
                       device=device)
     comparison = IsBetter(TASK_TYPE_DICT[args.dataset.lower()])
