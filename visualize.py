@@ -138,6 +138,7 @@ class Plotter:
                 g = graphs[0]
                 g_nx = to_networkx(g, to_undirected=True)
 
+                node_mask = node_mask > 0.
                 if node_mask.sum(2).max() == 1:
                     # 1 cluster per node
                     # n_samples, nnodes, n_ensemble
@@ -169,7 +170,7 @@ class Plotter:
                                 row_id = ens * n_samples + ns
                                 axs[row_id, kl].set_axis_off()
                                 mask = np.array(['w'] * g.num_nodes, dtype=object)
-                                mask[node_mask[ns, :, kl, ens] > 0.] = 'k'
+                                mask[node_mask[ns, :, kl, ens]] = 'k'
                                 nx.draw_kamada_kawai(g_nx,
                                                      node_color=mask,
                                                      edgecolors='k',
