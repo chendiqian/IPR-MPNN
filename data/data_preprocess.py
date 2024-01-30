@@ -104,4 +104,12 @@ class AddLaplacianEigenvectorPE:
 
         data.EigVecs = torch.from_numpy(eig_vecs[:, 1:self.k + 1])
         data.EigVals = torch.from_numpy(np.real(eig_vals[sort_idx][1:self.k + 1]))
+
+        # pad
+        if data.EigVecs.shape[1] < self.k:
+            data.EigVecs = torch.cat([data.EigVecs,
+                                      data.EigVecs.new_zeros(num_nodes, self.k - data.EigVecs.shape[1])], dim=1)
+            data.EigVals = torch.cat([data.EigVals,
+                                      data.EigVals.new_zeros(self.k - data.EigVecs.shape[1])], dim=0)
+
         return data
