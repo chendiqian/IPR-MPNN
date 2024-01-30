@@ -25,6 +25,10 @@ def get_graph_pooling(graph_pooling):
     elif graph_pooling == 'root':
         pool = lambda x, root_mask: x[root_mask]
         graph_pool_idx = 'output_mask'
+    elif graph_pooling == 'edge':
+        # pool = lambda x, edge_label_index: (x[edge_label_index[0]] * x[edge_label_index[1]]).sum(1, keepdims=True)
+        pool = lambda x, *args: x
+        graph_pool_idx = 'edge_label_index'
     else:
         raise NotImplementedError
     return pool, graph_pool_idx

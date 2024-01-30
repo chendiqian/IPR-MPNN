@@ -127,7 +127,7 @@ def get_model(args, device):
             sampler is not None:
 
         # Todo: enable this
-        if args.hybrid_model.intra_graph_pool == 'root':  # node prediction
+        if args.hybrid_model.intra_graph_pool in ['root', 'edge']:  # node / edge prediction
             assert args.hybrid_model.target == 'base', "Unable to use centroids"
         intra_graph_pool_func, intra_graph_pool_attr = get_graph_pooling(args.hybrid_model.intra_graph_pool)
 
@@ -152,7 +152,8 @@ def get_model(args, device):
                 intra_pred_head=MLP(
                     in_channels=-1,
                     hidden_channels=args.hetero.hidden,
-                    out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'],
+                    out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'] if
+                    DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'] is not None else args.hetero.hidden,
                     num_layers=args.hybrid_model.intra_pred_layer,
                     norm=None)
             )
