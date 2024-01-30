@@ -16,7 +16,7 @@ from torch_geometric.transforms import (Compose,
                                         ToUndirected,
                                         AddRemainingSelfLoops)
 
-from data.data_preprocess import AugmentWithPartition, AugmentWithDumbAttr, AddLaplacianEigenvectorPE
+from data.data_preprocess import AugmentWithPartition, AugmentWithDumbAttr, AddLaplacianEigenvectorPE, RenameLabel
 from data.planarsatpairsdataset import PlanarSATPairsDataset
 from data.utils import Config, AttributedDataLoader, get_all_split_idx, separate_data
 
@@ -40,6 +40,7 @@ PRETRANSFORM_PRIORITY = {
     AddLaplacianEigenvectorPE: 98,
     AugmentWithPartition: 98,
     AugmentWithDumbAttr: 98,
+    RenameLabel: 0,
 }
 
 
@@ -98,6 +99,9 @@ def get_data(args: Config, force_subset):
         task = 'node'
     elif args.dataset.lower().startswith('peptides'):
         train_set, val_set, test_set, std = get_lrgb(args, force_subset)
+    elif args.dataset.lower() == 'pcqm-contact':
+        task = 'edge'
+        train_set, val_set, test_set, std = get_lrgb(args, force_subset)
     elif args.dataset.lower() == 'exp':
         train_set, val_set, test_set, std = get_exp_dataset(args, force_subset)
     elif args.dataset.lower() == 'csl':
@@ -127,7 +131,7 @@ def get_data(args: Config, force_subset):
         val_loaders = AttributedDataLoader(loader=dataloader(val_set), std=std, task=task)
         test_loaders = None
 
-    return train_loaders, val_loaders, test_loaders
+    return train_loaders, val_loaders, test_loaders, task
 
 
 def get_zinc(args: Config, force_subset: bool):
@@ -236,7 +240,12 @@ def get_lrgb(args: Config, force_subset):
     extra_path = get_additional_path(args)
     if extra_path is not None:
         datapath = os.path.join(datapath, extra_path)
-    pre_transform = get_pretransform(args, extra_pretransforms=None)
+
+    if args.dataset.lower() == 'pcqm-contact':
+        extra_pretransforms = [RenameLabel()]
+    else:
+        extra_pretransforms = None
+    pre_transform = get_pretransform(args, extra_pretransforms=extra_pretransforms)
     transform = get_transform(args)
 
     train_set = LRGBDataset(root=datapath, name=args.dataset.lower(), split='train',

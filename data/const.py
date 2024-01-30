@@ -1,6 +1,5 @@
 from torch import nn
 
-
 DATASET_FEATURE_STAT_DICT = {
     'zinc': {'node': 21, 'edge': 4, 'num_class': 1},  # regression
     'mutag': {'node': 7, 'edge': 4, 'num_class': 1},  # bin classification
@@ -31,6 +30,7 @@ DATASET_FEATURE_STAT_DICT = {
 
     'peptides-struct': {'node': 9, 'edge': 4, 'num_class': 11},  # regression, but 11 labels
     'peptides-func': {'node': 9, 'edge': 4, 'num_class': 10},  # 10-way classification
+    'pcqm-contact': {'node': 9, 'edge': 3, 'num_class': None},  # edge prediction, but set it None!
     'tree_2': {'node': 4, 'edge': 0, 'num_class': 4},
     'tree_3': {'node': 8, 'edge': 0, 'num_class': 8},
     'tree_4': {'node': 16, 'edge': 0, 'num_class': 16},
@@ -55,7 +55,6 @@ DATASET_FEATURE_STAT_DICT = {
     'amazon-ratings': {'node': 300, 'edge': 0, 'num_class': 5},
 }
 
-
 TASK_TYPE_DICT = {
     'zinc': 'mae',
     'alchemy': 'mae',
@@ -70,6 +69,7 @@ TASK_TYPE_DICT = {
 
     'peptides-struct': 'mae',
     'peptides-func': 'ap',
+    'pcqm-contact': 'mrr',
     'ogbg-molesol': 'rmse',
     'ogbg-molbace': 'rocauc',
     'ogbg-molhiv': 'rocauc',
@@ -122,6 +122,7 @@ CRITERION_DICT = {
     'pcqm': nn.CrossEntropyLoss(),
     'peptides-struct': nn.L1Loss(),
     'peptides-func': nn.BCEWithLogitsLoss(),
+    'pcqm-contact': nn.BCEWithLogitsLoss(),
     'ogbg-molesol': nn.MSELoss(),
     'ogbg-molbace': nn.BCEWithLogitsLoss(),
     'ogbg-molhiv': nn.BCEWithLogitsLoss(),
@@ -166,12 +167,14 @@ SCHEDULER_MODE = {
     'rocauc': 'max',
     'rmse': 'min',
     'ap': 'max',
+    'mrr': 'max',
 }
 
 ENCODER_TYPE_DICT = {
     'zinc': {'bond': 'zinc', 'atom': 'zinc'},
     'peptides-func': {'bond': 'ogb', 'atom': 'ogb'},
     'peptides-struct': {'bond': 'ogb', 'atom': 'ogb'},
+    'pcqm-contact': {'bond': 'ogb', 'atom': 'ogb'},
     'cornell': {'bond': None, 'atom': 'linear'},
     'amazon-ratings': {'bond': None, 'atom': 'linear'},
     'csl': {'bond': 'linear', 'atom': 'linear'},
