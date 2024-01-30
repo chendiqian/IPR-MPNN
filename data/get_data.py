@@ -72,7 +72,12 @@ def get_pretransform(args: Config, extra_pretransforms: Optional[List] = None):
     if hasattr(args.encoder, 'lap'):
         pretransform.append(AddLaplacianEigenvectorPE(args.encoder.lap.max_freqs, is_undirected=True))
     if (hasattr(args, 'auxloss') and hasattr(args.auxloss, 'partition')) or hasattr(args.encoder, 'partition'):
-        pretransform.append(AugmentWithPartition(args.scorer_model.num_centroids))
+        if isinstance(args.scorer_model.num_centroids, list):
+            assert len(set(args.scorer_model.num_centroids)) == 1
+            num_centroids = args.scorer_model.num_centroids[0]
+        else:
+            num_centroids = args.scorer_model.num_centroids
+        pretransform.append(AugmentWithPartition(num_centroids))
 
     if pretransform:
         pretransform = sorted(pretransform, key=lambda p: PRETRANSFORM_PRIORITY[type(p)], reverse=True)
