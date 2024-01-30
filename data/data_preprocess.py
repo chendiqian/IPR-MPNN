@@ -43,6 +43,14 @@ class AugmentWithDumbAttr:
         return graph
 
 
+class RenameLabel:
+    # dumb class to rename edge_label to y
+    def __call__(self, graph: Data):
+        graph.y = graph.edge_label.float()  # for BCE loss
+        del graph.edge_label
+        return graph
+
+
 class AddLaplacianEigenvectorPE:
     """
     https://pytorch-geometric.readthedocs.io/en/latest/generated/torch_geometric.transforms.AddLaplacianEigenvectorPE.html
