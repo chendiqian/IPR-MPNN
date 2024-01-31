@@ -45,13 +45,11 @@ PRETRANSFORM_PRIORITY = {
 
 
 def get_additional_path(args: Config):
-    extra_path = ''
+    extra_path = f'partition{args.base2centroid.num_centroids}_'
     if hasattr(args.encoder, 'rwse'):
         extra_path += 'rwse_'
     if hasattr(args.encoder, 'lap'):
         extra_path += 'lap_'
-    if (hasattr(args, 'auxloss') and hasattr(args.auxloss, 'partition')) or hasattr(args.encoder, 'partition'):
-        extra_path += f'partition{args.scorer_model.num_centroids}_'
     return extra_path if len(extra_path) else None
 
 
@@ -64,7 +62,7 @@ def get_transform(args: Config):
 
 
 def get_pretransform(args: Config, extra_pretransforms: Optional[List] = None):
-    pretransform = []
+    pretransform = [AugmentWithPartition(args.base2centroid.num_centroids)]
     if extra_pretransforms is not None:
         pretransform = pretransform + extra_pretransforms
 
@@ -72,19 +70,9 @@ def get_pretransform(args: Config, extra_pretransforms: Optional[List] = None):
         pretransform.append(AddRandomWalkPE(args.encoder.rwse.kernel, 'pestat_RWSE'))
     if hasattr(args.encoder, 'lap'):
         pretransform.append(AddLaplacianEigenvectorPE(args.encoder.lap.max_freqs, is_undirected=True))
-    if (hasattr(args, 'auxloss') and hasattr(args.auxloss, 'partition')) or hasattr(args.encoder, 'partition'):
-        if isinstance(args.scorer_model.num_centroids, list):
-            assert len(set(args.scorer_model.num_centroids)) == 1
-            num_centroids = args.scorer_model.num_centroids[0]
-        else:
-            num_centroids = args.scorer_model.num_centroids
-        pretransform.append(AugmentWithPartition(num_centroids))
 
-    if pretransform:
-        pretransform = sorted(pretransform, key=lambda p: PRETRANSFORM_PRIORITY[type(p)], reverse=True)
-        return Compose(pretransform)
-    else:
-        return None
+    pretransform = sorted(pretransform, key=lambda p: PRETRANSFORM_PRIORITY[type(p)], reverse=True)
+    return Compose(pretransform)
 
 
 def get_data(args: Config, force_subset):

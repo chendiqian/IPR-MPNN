@@ -29,11 +29,10 @@ class Plotter:
 
         self.plot_every = plot_args.plot_every
         self.plot_mask = hasattr(plot_args, 'mask') and plot_args.mask
-        self.plot_score = hasattr(plot_args, 'score') and plot_args.score
         self.plot_graph = hasattr(plot_args, 'graph') and plot_args.graph
 
         for key in plot_args:
-            if key not in ['mask', 'score', 'graph', 'plot_folder', 'plot_every']:
+            if key not in ['mask', 'graph', 'plot_folder', 'plot_every']:
                 warnings.warn(f'Key {key} is not a valid plotting option.')
 
     def __call__(self, epoch, train_loader, val_loader, model, wandb):
@@ -93,40 +92,6 @@ class Plotter:
                     tmp_path = f'msk_{epoch}_{phase}_{"".join(re_split(r"[ :.-]", str(datetime.now())))}.png'
                     fig.savefig(tmp_path, bbox_inches='tight')
                     wandb.log({f"plot_mask_phase_{phase}": wandb.Image(tmp_path)}, step=epoch)
-                    os.unlink(tmp_path)
-
-                plt.close(fig)
-
-            # plot score
-            if self.plot_score:
-                nnodes, n_centroids, n_ensemble = scores.shape
-
-                vmin = np.min(scores)
-                vmax = np.max(scores)
-
-                fig, axs = plt.subplots(ncols=n_ensemble + 1,
-                                        figsize=(n_centroids * n_ensemble * 1.2, nnodes),
-                                        gridspec_kw=dict(width_ratios=[1.] * n_ensemble + [0.3]))
-
-                for ens in range(n_ensemble):
-                    # nnodes, n_centroids
-                    mask = scores[:, :, ens]
-
-                    axs[ens].set_axis_off()
-                    sns.heatmap(mask, cbar=False, vmin=vmin, vmax=vmax, ax=axs[ens],
-                                linewidths=0.1, linecolor='yellow')
-                    axs[ens].title.set_text(f'phase {phase} ens{ens}')
-
-                fig.colorbar(axs[0].collections[0], cax=axs[-1])
-
-                if self.plot_folder is not None:
-                    path = os.path.join(self.plot_folder, f'scores_epoch{epoch}_{phase}.png')
-                    fig.savefig(path, bbox_inches='tight')
-                    wandb.log({f"plot_score_phase_{phase}": wandb.Image(path)}, step=epoch)
-                else:
-                    tmp_path = f'sc_{epoch}_{phase}_{"".join(re_split(r"[ :.-]", str(datetime.now())))}.png'
-                    fig.savefig(tmp_path, bbox_inches='tight')
-                    wandb.log({f"plot_score_phase_{phase}": wandb.Image(tmp_path)}, step=epoch)
                     os.unlink(tmp_path)
 
                 plt.close(fig)

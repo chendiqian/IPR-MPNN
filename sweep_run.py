@@ -1,5 +1,5 @@
 import wandb
-from data.utils import Config, args_canonize, args_unify
+from data.utils import Config, args_canonize
 from run import main
 
 
@@ -15,5 +15,4 @@ if __name__ == '__main__':
     args = args_canonize(wandb.config._as_dict())
     config = Config()
     config.update(args)
-    config = args_unify(config)
     main(config, wandb)
