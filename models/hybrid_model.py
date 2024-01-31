@@ -38,7 +38,7 @@ class HybridModel(torch.nn.Module):
         node_mask[torch.arange(nnodes, device=device), data.partition] = 1.
 
         if for_plots_only:
-            return None, node_mask[None, :, :, None], None, None
+            return None, node_mask[None, :, :, None].cpu().numpy(), None, None
 
         node_mask = node_mask.t()[None]
 
