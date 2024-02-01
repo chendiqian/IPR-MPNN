@@ -116,6 +116,7 @@ class Trainer:
             if type(outputs) == list:
                 head_losses = [self.criterion(get_pred(output), y) for output in outputs]
                 loss = torch.sum(torch.stack(head_losses))
+                outputs = outputs[-1]
             else:
                 loss = self.criterion(get_pred(outputs), y)
             train_losses += loss.detach() * y.shape[0]
@@ -161,6 +162,7 @@ class Trainer:
             if type(outputs) == list:
                 head_losses = [self.criterion(get_pred(output), y) for output in outputs]
                 loss = torch.sum(torch.stack(head_losses))
+                outputs = outputs[-1]
             else:
                 loss = self.criterion(get_pred(outputs), y)
 
