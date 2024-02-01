@@ -198,7 +198,8 @@ def get_model(args, device):
                 intra_pred_head=MLP(
                     in_channels=-1,
                     hidden_channels=args.gnn.hidden,
-                    out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'],
+                    out_channels=DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'] if
+                    DATASET_FEATURE_STAT_DICT[args.dataset.lower()]['num_class'] is not None else args.gnn.hidden,
                     num_layers=args.gnn.pred_layer,
                     norm=None,
                     act=args.gnn.activation)
