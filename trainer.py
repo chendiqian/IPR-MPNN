@@ -101,12 +101,14 @@ class Trainer:
 
         train_losses = 0.
         train_metrics = defaultdict(float)
-        num_instances = 0
+        num_labels = 0
+        num_graphs = 0
 
         for data in train_loader.loader:
             data = data.to(self.device)
             y = data.y
-            num_instances += y.shape[0]
+            num_labels += y.shape[0]
+            num_graphs += data.num_graphs
 
             npreds = (data._slice_dict['y'][1:] - data._slice_dict['y'][:-1]).to(self.device)
             nnodes = (data._slice_dict['x'][1:] - data._slice_dict['x'][:-1]).to(self.device)
@@ -139,12 +141,12 @@ class Trainer:
                                           npreds, nnodes,
                                           data.edge_label_index)
             for k, v in train_metric.items():
-                train_metrics[k] += v * y.shape[0]
+                train_metrics[k] += v * data.num_graphs
 
         for k, v in train_metrics.items():
-            train_metrics[k] = v.item() / num_instances
+            train_metrics[k] = v.item() / num_graphs
 
-        return train_losses.item() / num_instances, train_metrics
+        return train_losses.item() / num_labels, train_metrics
 
     @torch.no_grad()
     def test_link_pred(self, loader, model, scheduler, epoch=None):
@@ -152,12 +154,14 @@ class Trainer:
 
         val_losses = 0.
         val_metrics = defaultdict(float)
-        num_instances = 0
+        num_labels = 0
+        num_graphs = 0
 
         for data in loader.loader:
             data = data.to(self.device)
             y = data.y
-            num_instances += y.shape[0]
+            num_graphs += data.num_graphs
+            num_labels += y.shape[0]
 
             npreds = (data._slice_dict['y'][1:] - data._slice_dict['y'][:-1]).to(self.device)
             nnodes = (data._slice_dict['x'][1:] - data._slice_dict['x'][:-1]).to(self.device)
@@ -186,14 +190,14 @@ class Trainer:
                                           npreds, nnodes,
                                           data.edge_label_index)
             for k, v in val_metric.items():
-                val_metrics[k] += v * y.shape[0]
+                val_metrics[k] += v * data.num_graphs
 
         for k, v in val_metrics.items():
-            val_metrics[k] = v.item() / num_instances
+            val_metrics[k] = v.item() / num_graphs
 
         if scheduler is not None:
             scheduler.step(epoch) if 'LambdaLR' in str(type(scheduler)) else scheduler.step(val_metrics[self.target_metric])
-        return val_losses.item() / num_instances, val_metrics
+        return val_losses.item() / num_labels, val_metrics
 
     def clear_stats(self):
         self.best_val_loss = 1e5
