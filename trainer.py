@@ -1,4 +1,6 @@
-from typing import Union
+from typing import Union, Dict
+from collections import defaultdict
+
 import torch
 from data.metrics import Evaluator
 
@@ -10,6 +12,7 @@ class Trainer:
                  task: str,
                  criterion: torch.nn.modules.loss,
                  evaluator: Evaluator,
+                 target_metric: str,
                  device: Union[str, torch.device]):
         super(Trainer, self).__init__()
 
@@ -21,6 +24,7 @@ class Trainer:
             self.test = self.test_node_graph_prediction
         self.criterion = criterion
         self.evaluator = evaluator
+        self.target_metric = target_metric
         self.device = device
         self.clear_stats()
 
@@ -56,7 +60,7 @@ class Trainer:
 
         preds = torch.cat(preds, dim=0)
         labels = torch.cat(labels, dim=0)
-        train_metric = self.evaluator(labels, preds)
+        train_metric: Dict = self.evaluator(labels, preds)
         return train_losses.item() / num_instances, train_metric
 
     @torch.no_grad()
@@ -87,16 +91,16 @@ class Trainer:
 
         preds = torch.cat(preds, dim=0)
         labels = torch.cat(labels, dim=0)
-        val_metric = self.evaluator(labels, preds)
+        val_metric: Dict = self.evaluator(labels, preds)
         if scheduler is not None:
-            scheduler.step(epoch) if 'LambdaLR' in str(type(scheduler)) else scheduler.step(val_metric)
+            scheduler.step(epoch) if 'LambdaLR' in str(type(scheduler)) else scheduler.step(val_metric[self.target_metric])
         return val_losses.item() / num_instances, val_metric
 
     def train_link_pred(self, train_loader, model, optimizer):
         model.train()
 
         train_losses = 0.
-        train_metrics = 0.
+        train_metrics = defaultdict(float)
         num_instances = 0
 
         for data in train_loader.loader:
@@ -134,16 +138,20 @@ class Trainer:
             train_metric = self.evaluator(y, all_prediction,
                                           npreds, nnodes,
                                           data.edge_label_index)
-            train_metrics += train_metric * y.shape[0]
+            for k, v in train_metric.items():
+                train_metrics[k] += v * y.shape[0]
 
-        return train_losses.item() / num_instances, train_metrics.item() / num_instances
+        for k, v in train_metrics.items():
+            train_metrics[k] = v.item() / num_instances
+
+        return train_losses.item() / num_instances, train_metrics
 
     @torch.no_grad()
     def test_link_pred(self, loader, model, scheduler, epoch=None):
         model.eval()
 
         val_losses = 0.
-        val_metrics = 0.
+        val_metrics = defaultdict(float)
         num_instances = 0
 
         for data in loader.loader:
@@ -177,13 +185,15 @@ class Trainer:
             val_metric = self.evaluator(y, all_prediction,
                                           npreds, nnodes,
                                           data.edge_label_index)
-            val_metrics += val_metric * y.shape[0]
+            for k, v in val_metric.items():
+                val_metrics[k] += v * y.shape[0]
 
-        val_metric = val_metrics.item() / num_instances
+        for k, v in val_metrics.items():
+            val_metrics[k] = v.item() / num_instances
 
         if scheduler is not None:
-            scheduler.step(epoch) if 'LambdaLR' in str(type(scheduler)) else scheduler.step(val_metric)
-        return val_losses.item() / num_instances, val_metric
+            scheduler.step(epoch) if 'LambdaLR' in str(type(scheduler)) else scheduler.step(val_metrics[self.target_metric])
+        return val_losses.item() / num_instances, val_metrics
 
     def clear_stats(self):
         self.best_val_loss = 1e5

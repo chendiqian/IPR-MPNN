@@ -64,6 +64,7 @@ def main(args, wandb):
     trainer = Trainer(task=task,
                       criterion=CRITERION_DICT[args.dataset.lower()],
                       evaluator=Evaluator(target_metric),
+                      target_metric=target_metric,
                       device=device)
     comparison = IsBetter(target_metric)
 
@@ -115,7 +116,7 @@ def main(args, wandb):
                 with torch.no_grad():
                     plotter(epoch, plot_train_loader, plot_val_loader, model, wandb)
 
-                is_better, the_better = comparison(val_metric, trainer.best_val_metric)
+                is_better, the_better = comparison(val_metric[target_metric], trainer.best_val_metric)
                 if is_better:
                     trainer.patience = 0
                     trainer.best_val_metric = the_better
@@ -130,11 +131,15 @@ def main(args, wandb):
 
                 log_dict = {'train_loss': train_loss,
                             'val_loss': val_loss,
-                            'test_loss': test_loss if (hasattr(args, 'log_test') and args.log_test) else 0.,
-                            'train_metric': train_metric,
-                            'val_metric': val_metric,
-                            'test_metric': test_metric if (hasattr(args, 'log_test') and args.log_test) else 0.,
                             'lr': scheduler.optimizer.param_groups[0]["lr"]}
+                for k, v in train_metric.items():
+                    log_dict['train_metric_' + k] = v
+                for k, v in val_metric.items():
+                    log_dict['val_metric_' + k] = v
+                if hasattr(args, 'log_test') and args.log_test:
+                    log_dict['test_loss'] = test_loss
+                    for k, v in test_metric.items():
+                        log_dict['test_metric_' + k] = v
                 
                 pbar.set_postfix(log_dict)
                 wandb.log(log_dict)
@@ -142,25 +147,21 @@ def main(args, wandb):
             model.load_state_dict(best_model)
             with torch.no_grad():
                 test_loss, test_metric = trainer.test(test_loader, model, None)
-            test_metrics[_run].append(test_metric)
+            test_metrics[_run].append(test_metric[target_metric])
             best_val_metrics[_run].append(trainer.best_val_metric)
 
             logging.info(f'Best val metric: {trainer.best_val_metric}')
-            logging.info(f'test metric: {test_metric}')
-            # logging.info(f'test metric ensemble: {test_metric_ensemble}')
+            logging.info(f'test metric: {test_metric[target_metric]}')
 
             trainer.clear_stats()
 
     test_metrics = np.array(test_metrics)
     best_val_metrics = np.array(best_val_metrics)
-    # test_metrics_ensemble = np.array(test_metrics_ensemble)
 
     wandb.run.summary['best_val_metric'] = np.mean(best_val_metrics)
     wandb.run.summary['best_val_metric_std'] = np.std(best_val_metrics)
     wandb.run.summary['test_metric'] = np.mean(test_metrics)
     wandb.run.summary['test_metric_std'] = np.std(test_metrics)
-    # wandb.run.summary['test_metric_ensemble'] = np.mean(test_metrics_ensemble)
-    # wandb.run.summary['test_metric_ensemble_std'] = np.std(test_metrics_ensemble)
 
 
 if __name__ == '__main__':

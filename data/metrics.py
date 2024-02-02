@@ -1,3 +1,5 @@
+from typing import Dict, Union
+
 import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score, f1_score, average_precision_score
@@ -6,7 +8,8 @@ from torch_geometric.utils import to_dense_batch
 from torch_scatter import scatter
 
 
-def pre_proc(y1, y2):
+def pre_proc(y1: Union[torch.Tensor, np.ndarray],
+             y2: Union[torch.Tensor, np.ndarray]):
     if len(y1.shape) == 1:
         y1 = y1[:, None]
     if len(y2.shape) == 1:
@@ -18,7 +21,7 @@ def pre_proc(y1, y2):
     return y1, y2
 
 
-def eval_rocauc(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+def eval_rocauc(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
     """
         compute ROC-AUC averaged across tasks
     """
@@ -34,10 +37,10 @@ def eval_rocauc(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     if len(rocauc_list) == 0:
         raise RuntimeError('No positively labeled data available. Cannot compute ROC-AUC.')
 
-    return sum(rocauc_list) / len(rocauc_list)
+    return {'rocauc': sum(rocauc_list) / len(rocauc_list)}
 
 
-def eval_acc(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+def eval_acc(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
     """
     eval accuracy (potentially multi task)
 
@@ -52,10 +55,10 @@ def eval_acc(y_true: np.ndarray, y_pred: np.ndarray) -> float:
         correct = y_true[is_labeled, i] == y_pred[is_labeled, i]
         acc_list.append(float(np.sum(correct)) / len(correct))
 
-    return sum(acc_list) / len(acc_list)
+    return {'acc': sum(acc_list) / len(acc_list)}
 
 
-def eval_rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+def eval_rmse(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
     rmse_list = []
 
     for i in range(y_true.shape[1]):
@@ -63,10 +66,10 @@ def eval_rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
         is_labeled = y_true[:, i] == y_true[:, i]
         rmse_list.append(np.sqrt(((y_true[is_labeled, i] - y_pred[is_labeled, i]) ** 2).mean()))
 
-    return sum(rmse_list) / len(rmse_list)
+    return {'rmse': sum(rmse_list) / len(rmse_list)}
 
 
-def eval_mae(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+def eval_mae(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
     mae_list = []
 
     for i in range(y_true.shape[1]):
@@ -74,9 +77,9 @@ def eval_mae(y_true: np.ndarray, y_pred: np.ndarray) -> float:
         is_labeled = y_true[:, i] == y_true[:, i]
         mae_list.append(np.abs(y_true[is_labeled, i] - y_pred[is_labeled, i]).mean())
 
-    return sum(mae_list) / len(mae_list)
+    return {'mae': sum(mae_list) / len(mae_list)}
 
-def eval_ap(y_true, y_pred):
+def eval_ap(y_true, y_pred) -> Dict[str, float]:
     '''
         compute Average Precision (AP) averaged across tasks
         From:
@@ -99,10 +102,10 @@ def eval_ap(y_true, y_pred):
         raise RuntimeError(
             'No positively labeled data available. Cannot compute Average Precision.')
 
-    return sum(ap_list) / len(ap_list)
+    return {'ap': sum(ap_list) / len(ap_list)}
 
 
-def eval_F1macro(y_true: np.ndarray, y_pred: np.ndarray):
+def eval_F1macro(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
     f1s = []
 
     for i in range(y_true.shape[1]):
@@ -110,10 +113,10 @@ def eval_F1macro(y_true: np.ndarray, y_pred: np.ndarray):
         f1 = f1_score(y_true[is_labeled, i], y_pred[is_labeled, i], average='macro')
         f1s.append(f1)
 
-    return sum(f1s) / len(f1s)
+    return {'f1_macro': sum(f1s) / len(f1s)}
 
 
-def _eval_mrr(y_pred_pos, y_pred_neg, type_info):
+def _eval_mrr(y_pred_pos, y_pred_neg, type_info) -> Dict[str, float]:
     """ Compute Hits@k and Mean Reciprocal Rank (MRR).
 
     Implementation from OGB:
@@ -129,15 +132,15 @@ def _eval_mrr(y_pred_pos, y_pred_neg, type_info):
         argsort = torch.argsort(y_pred, dim=1, descending=True)
         ranking_list = torch.nonzero(argsort == 0, as_tuple=False)
         ranking_list = ranking_list[:, 1] + 1
-        # hits1_list = (ranking_list <= 1).to(torch.float)
-        # hits3_list = (ranking_list <= 3).to(torch.float)
-        # hits10_list = (ranking_list <= 10).to(torch.float)
+        hits1_list = (ranking_list <= 1).to(torch.float)
+        hits3_list = (ranking_list <= 3).to(torch.float)
+        hits10_list = (ranking_list <= 10).to(torch.float)
         mrr_list = 1. / ranking_list.to(torch.float)
 
-        # return {f'hits@1{suffix}_list': hits1_list,
-        #         f'hits@3{suffix}_list': hits3_list,
-        #         f'hits@10{suffix}_list': hits10_list,
-        #         f'mrr{suffix}_list': mrr_list}
+        return {f'hits@1{suffix}_list': hits1_list,
+                f'hits@3{suffix}_list': hits3_list,
+                f'hits@10{suffix}_list': hits10_list,
+                f'mrr{suffix}_list': mrr_list}
         return mrr_list.mean().item()
     else:
         y_pred = np.concatenate([y_pred_pos.reshape(-1, 1), y_pred_neg],
@@ -145,15 +148,15 @@ def _eval_mrr(y_pred_pos, y_pred_neg, type_info):
         argsort = np.argsort(-y_pred, axis=1)
         ranking_list = (argsort == 0).nonzero()
         ranking_list = ranking_list[1] + 1
-        # hits1_list = (ranking_list <= 1).astype(np.float32)
-        # hits3_list = (ranking_list <= 3).astype(np.float32)
-        # hits10_list = (ranking_list <= 10).astype(np.float32)
+        hits1_list = (ranking_list <= 1).astype(np.float32)
+        hits3_list = (ranking_list <= 3).astype(np.float32)
+        hits10_list = (ranking_list <= 10).astype(np.float32)
         mrr_list = 1. / ranking_list.astype(np.float32)
 
-        # return {'hits@1_list': hits1_list,
-        #         'hits@3_list': hits3_list,
-        #         'hits@10_list': hits10_list,
-        #         'mrr_list': mrr_list}
+        return {'hits@1_list': hits1_list,
+                'hits@3_list': hits3_list,
+                'hits@10_list': hits10_list,
+                'mrr_list': mrr_list}
         return mrr_list.mean().item()
 
 
@@ -161,7 +164,7 @@ def eval_mrr(y_true: torch.Tensor,
              y_pred: torch.Tensor,
              npreds: torch.Tensor,
              nnodes: torch.Tensor,
-             edge_label_idx: torch.Tensor):
+             edge_label_idx: torch.Tensor) -> Dict[str, float]:
     device = y_true.device
     y_true = torch.split(y_true, npreds.cpu().tolist(), dim=0)
 
@@ -197,7 +200,7 @@ def eval_mrr_batch(y_true: torch.Tensor,
                    y_pred: torch.Tensor,
                    npreds: torch.Tensor,
                    nnodes: torch.Tensor,
-                   edge_label_idx: torch.Tensor):
+                   edge_label_idx: torch.Tensor) -> Dict[str, float]:
     device = y_true.device
     num_graphs = len(nnodes)
 
