@@ -12,7 +12,7 @@ import yaml
 from torch import optim
 from tqdm import tqdm
 
-from data.const import CRITERION_DICT, TASK_TYPE_DICT, SCHEDULER_MODE
+from data.const import CRITERION_DICT, TASK_TYPE_DICT
 from data.metrics import Evaluator
 from data.get_data import get_data
 from data.utils import IsBetter
@@ -21,7 +21,7 @@ from models.get_model import get_model
 from trainer import Trainer
 from visualize import Plotter
 
-from data.schedulers import get_cosine_schedule_with_warmup
+from data.schedulers import get_scheduler
 
 
 def args_parser():
@@ -52,6 +52,7 @@ def main(args, wandb):
     logging.info(f'Using device {device}')
 
     train_loaders, val_loaders, test_loaders, task = get_data(args, False)
+    target_metric: str = TASK_TYPE_DICT[args.dataset.lower()]
 
     # for visualization
     plotter = Plotter(device, args.plots if hasattr(args, 'plots') else None)
@@ -62,13 +63,12 @@ def main(args, wandb):
 
     trainer = Trainer(task=task,
                       criterion=CRITERION_DICT[args.dataset.lower()],
-                      evaluator=Evaluator(TASK_TYPE_DICT[args.dataset.lower()]),
+                      evaluator=Evaluator(target_metric),
                       device=device)
-    comparison = IsBetter(TASK_TYPE_DICT[args.dataset.lower()])
+    comparison = IsBetter(target_metric)
 
     best_val_metrics = [[] for _ in range(args.num_runs)]
     test_metrics = [[] for _ in range(args.num_runs)]
-    test_metrics_ensemble = [[] for _ in range(args.num_runs)]
 
     for _run in range(args.num_runs):
         for _fold, (train_loader, val_loader, test_loader) in enumerate(
@@ -98,14 +98,7 @@ def main(args, wandb):
             optimizer = optim.Adam([{'params': no_wd, 'weight_decay': 0.},
                                     {'params': wd, 'weight_decay': args.weight_decay}],
                                    lr=args.lr)
-            
-            if hasattr(args, 'scheduler_type') and args.scheduler_type == "cos_with_warmup":
-                scheduler = get_cosine_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=args.scheduler_warmup if hasattr(args, "scheduler_warmup") else 5)
-            else:
-                scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
-                                                                 mode=SCHEDULER_MODE[TASK_TYPE_DICT[args.dataset.lower()]],
-                                                                 factor=0.5, patience=args.scheduler_patience if hasattr(args, "scheduler_patience") else 50, min_lr=1.e-5)
-
+            scheduler = get_scheduler(args, optimizer)
             # wandb.watch(model, log='all', log_freq=1)
 
             pbar = tqdm(range(1, args.max_epoch + 1))

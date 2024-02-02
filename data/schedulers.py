@@ -2,6 +2,9 @@ from torch.optim import Optimizer
 import math
 import torch.optim as optim
 
+from data.const import TASK_TYPE_DICT, SCHEDULER_MODE
+
+
 def get_cosine_schedule_with_warmup(
         optimizer: Optimizer, num_warmup_steps: int = 5, num_training_steps: int = 250,
         num_cycles: float = 0.5, last_epoch: int = -1):
@@ -36,3 +39,19 @@ def get_cosine_schedule_with_warmup(
         return max(0.0, 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress)))
 
     return optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch)
+
+
+def get_scheduler(args, optimizer):
+    target_metric: str = TASK_TYPE_DICT[args.dataset.lower()]
+    if hasattr(args, 'scheduler_type') and args.scheduler_type == "cos_with_warmup":
+        scheduler = get_cosine_schedule_with_warmup(optimizer=optimizer,
+                                                    num_warmup_steps=args.scheduler_warmup
+                                                    if hasattr(args, "scheduler_warmup") else 5)
+    else:
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
+                                                         mode=SCHEDULER_MODE[target_metric],
+                                                         factor=0.5,
+                                                         patience=args.scheduler_patience
+                                                         if hasattr(args, "scheduler_patience") else 50,
+                                                         min_lr=1.e-5)
+    return scheduler
