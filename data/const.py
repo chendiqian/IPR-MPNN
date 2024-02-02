@@ -69,7 +69,7 @@ TASK_TYPE_DICT = {
 
     'peptides-struct': 'mae',
     'peptides-func': 'ap',
-    'pcqm-contact': 'mrr',
+    'pcqm-contact': 'mrr_self_filtered',
     'ogbg-molesol': 'rmse',
     'ogbg-molbace': 'rocauc',
     'ogbg-molhiv': 'rocauc',
@@ -168,6 +168,7 @@ SCHEDULER_MODE = {
     'rmse': 'min',
     'ap': 'max',
     'mrr': 'max',
+    'mrr_self_filtered': 'max',
 }
 
 ENCODER_TYPE_DICT = {
