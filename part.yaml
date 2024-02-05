@@ -1,0 +1,137 @@
+program: sweep_run.py
+method: grid
+entity: mls-stuttgart
+project: fix_partition_4
+
+metric:
+  goal: maximize
+  name: test_metric
+
+parameters:
+  ckpt:
+    value: false
+
+  dataset:
+    value: peptides-func
+  data_path:
+    value: ./datasets
+  batch_size:
+    value: 128
+  lr:
+    value: 1.e-3
+  weight_decay:
+    value: 0.
+  debug:
+    value: false
+  num_runs:
+    value: 1
+  max_epoch:
+    value: 1000
+  min_epoch:
+    value: 100
+  patience:
+    value: 100
+  log_test:
+    value: true
+
+  encoder:
+    parameters:
+      rwse:
+        parameters:
+          kernel:
+            value: 20
+          layers:
+            value: 2
+          dim_pe:
+            value: 32
+          raw_norm_type:
+            value: 'BatchNorm'
+
+      lap:
+        parameters:
+          max_freqs:
+            value: 4
+          dim_pe:
+            value: 32
+          layers:
+            value: 1
+          raw_norm_type:
+            value: none
+
+  base2centroid:
+    parameters:
+      num_centroids:
+        value: 4
+      conv:
+        value: gine
+      num_conv_layers:
+        values:
+          - 2
+          - 4
+        distribution: categorical
+      num_mlp_layers:
+        value: 3
+      norm:
+        value: batch_norm
+      activation:
+        value: gelu
+      dropout:
+        value: 0.
+      centroid_aggr:
+        value: mean
+
+  hetero:
+    parameters:
+      conv:
+        value: gine
+      hidden:
+        value: 128
+      cent_hidden:
+        value: 256
+      num_conv_layers:
+        values:
+          - 3
+          - 5
+          - 10
+        distribution: categorical
+      num_mlp_layers:
+        value: 2
+      norm:
+        value: batch_norm
+      activation:
+        value: gelu
+      dropout:
+        value: 0.
+      residual:
+        value: true
+      delay:
+        values:
+          - 0
+          - 2
+        distribution: categorical
+      aggr:
+        value: cat
+      parallel:
+        value: true
+
+  hybrid_model:
+    parameters:
+      jk:
+        value: identity
+      target:
+        value: both
+      inter_pred_layer:
+        value: 3
+      intra_pred_layer:
+        value: 3
+      inter_ensemble_pool:
+        value: mean
+      intra_graph_pool:
+        value: mean
+
+  plots:
+    parameters:
+      plot_every:
+        value: 50
+      graph:
+        value: true
