@@ -46,7 +46,9 @@ def get_scheduler(args, optimizer):
     if hasattr(args, 'scheduler_type') and args.scheduler_type == "cos_with_warmup":
         scheduler = get_cosine_schedule_with_warmup(optimizer=optimizer,
                                                     num_warmup_steps=args.scheduler_warmup
-                                                    if hasattr(args, "scheduler_warmup") else 5)
+                                                    if hasattr(args, "scheduler_warmup") else 5,
+                                                    num_training_steps=args.scheduler_patience if hasattr(args, "scheduler_patience") else 50)
+
     else:
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                          mode=SCHEDULER_MODE[target_metric],
