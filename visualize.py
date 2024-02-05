@@ -152,10 +152,19 @@ class Plotter:
                     for ens in range(n_ensemble):
                         for ns in range(n_samples):
                             axs[ens, ns].set_axis_off()
-                            nx.draw_kamada_kawai(g_nx,
-                                                 node_color=mask[ns, :, ens],
-                                                 ax=axs[ens, ns],
-                                                 node_size=4500 // g.num_nodes)  # empirical number
+                            pos = nx.kamada_kawai_layout(g_nx)
+                            nx.draw_networkx(g_nx,
+                                             pos=pos,
+                                             node_color=mask[ns, :, ens],
+                                             with_labels=False,
+                                             ax=axs[ens, ns],
+                                             node_size=4500 // g.num_nodes)  # empirical number
+                            # draw dummy nodes
+                            nx.draw_networkx_nodes(g_nx,
+                                                   pos=pos,
+                                                   nodelist=np.where(np.abs(node_mask).max(2) == 0.)[0],
+                                                   node_color='k',
+                                                   node_size=4500 // g.num_nodes)
                             axs[ens, ns].title.set_text(f'phase {phase}, ens{ens}, ns{ns}')
                 else:
                     # more than 1 cluster per node
