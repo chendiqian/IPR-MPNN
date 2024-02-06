@@ -6,7 +6,7 @@ from torch_geometric.nn.models import GIN
 
 from data.const import DATASET_FEATURE_STAT_DICT, ENCODER_TYPE_DICT
 from models.auxloss import get_auxloss
-from models.base2centroid import GNNMultiEdgeset
+from models.base2centroid import GNNMultiEdgeset, DumbGNNMultiEdgeset
 from models.hetero_gnn import HeteroGNN
 from models.hybrid_model import HybridModel
 from models.my_encoders import get_bond_encoder, get_atom_encoder
@@ -74,20 +74,24 @@ def get_model(args, device):
         scorer_model = None
 
     # base to centroid
-    if hasattr(args, 'base2centroid') and args.base2centroid is not None:
-        base2centroid_model = GNNMultiEdgeset(
-            conv=args.base2centroid.conv,
-            centroid_aggr=args.base2centroid.centroid_aggr,
-            atom_encoder_handler=get_atom_encoder_handler,
-            bond_encoder_handler=get_bond_encoder_handler,
-            hidden=args.hetero.hidden,
-            num_conv_layers=args.base2centroid.num_conv_layers,
-            num_mlp_layers=args.base2centroid.num_mlp_layers,
-            out_feature=args.hetero.cent_hidden if hasattr(args.hetero, 'cent_hidden') else args.hetero.hidden,
-            norm=args.base2centroid.norm,
-            activation=args.base2centroid.activation,
-            dropout=args.base2centroid.dropout,
-        )
+    if hasattr(args, 'base2centroid'):
+        if args.base2centroid is not None:
+            base2centroid_model = GNNMultiEdgeset(
+                conv=args.base2centroid.conv,
+                centroid_aggr=args.base2centroid.centroid_aggr,
+                atom_encoder_handler=get_atom_encoder_handler,
+                bond_encoder_handler=get_bond_encoder_handler,
+                hidden=args.hetero.hidden,
+                num_conv_layers=args.base2centroid.num_conv_layers,
+                num_mlp_layers=args.base2centroid.num_mlp_layers,
+                out_feature=args.hetero.cent_hidden if hasattr(args.hetero, 'cent_hidden') else args.hetero.hidden,
+                norm=args.base2centroid.norm,
+                activation=args.base2centroid.activation,
+                dropout=args.base2centroid.dropout,
+            )
+        else:
+            base2centroid_model = DumbGNNMultiEdgeset(
+                out_feature=args.hetero.cent_hidden if hasattr(args.hetero, 'cent_hidden') else args.hetero.hidden)
     else:
         base2centroid_model = None
 

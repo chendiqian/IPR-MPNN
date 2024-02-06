@@ -261,3 +261,15 @@ class GNNMultiEdgeset(torch.nn.Module):
 
         x = x.reshape(n_samples, sum_n_centroids, n_graphs, x.shape[-1])
         return x
+
+
+class DumbGNNMultiEdgeset(torch.nn.Module):
+    def __init__(self, out_feature):
+        super(DumbGNNMultiEdgeset, self).__init__()
+        self.out_feature = out_feature
+
+    def forward(self, data, node_mask):
+        device = data.x.device
+        n_graphs = data.num_graphs
+        n_samples, sum_n_centroids, nnodes, _ = node_mask.shape
+        return torch.zeros(n_samples, sum_n_centroids, n_graphs, self.out_feature, device=device, dtype=torch.float)
