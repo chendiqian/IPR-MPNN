@@ -1,0 +1,39 @@
+wandb:
+    use_wandb: true
+    project: pcqm
+    entity: chendiqian
+    name: gnn-l5
+
+ckpt: false
+
+dataset: pcqm-contact
+data_path: ./datasets
+batch_size: 256
+lr: 1.e-3
+weight_decay: 0.
+debug: false
+num_runs: 1
+max_epoch: 1000
+min_epoch: 100
+patience: 100
+log_test: True
+
+# encoder
+encoder:
+    lap:
+        max_freqs: 4
+        dim_pe: 32
+        layers: 1
+        raw_norm_type: null
+
+gnn:
+    jk: none
+    conv: gine
+    hidden: 192
+    num_conv_layers: 5
+    norm: batch_norm
+    activation: gelu
+    dropout: 0.
+
+    pred_layer: 2
+    graph_pool: edge
