@@ -264,12 +264,21 @@ class GNNMultiEdgeset(torch.nn.Module):
 
 
 class DumbGNNMultiEdgeset(torch.nn.Module):
-    def __init__(self, out_feature):
+    def __init__(self, lazy_init, out_feature):
         super(DumbGNNMultiEdgeset, self).__init__()
+        assert lazy_init in ['zero', 'rand']
+        self.lazy_init = lazy_init
         self.out_feature = out_feature
 
     def forward(self, data, node_mask):
         device = data.x.device
         n_graphs = data.num_graphs
         n_samples, sum_n_centroids, nnodes, _ = node_mask.shape
-        return torch.zeros(n_samples, sum_n_centroids, n_graphs, self.out_feature, device=device, dtype=torch.float)
+        if self.lazy_init == 'zero':
+            x = torch.zeros(n_samples, sum_n_centroids, n_graphs, self.out_feature, device=device, dtype=torch.float)
+        elif self.lazy_init == 'rand':
+            x = torch.empty(n_samples, sum_n_centroids, n_graphs, self.out_feature, device=device, dtype=torch.float)
+            torch.nn.init.xavier_normal_(x)
+        else:
+            raise NotImplementedError
+        return x

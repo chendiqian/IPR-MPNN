@@ -74,8 +74,12 @@ def get_model(args, device):
         scorer_model = None
 
     # base to centroid
-    if hasattr(args, 'base2centroid'):
-        if args.base2centroid is not None:
+    if hasattr(args, 'base2centroid') and args.base2centroid is not None:
+        if hasattr(args.base2centroid, 'lazy_init'):
+            base2centroid_model = DumbGNNMultiEdgeset(
+                lazy_init=args.base2centroid.lazy_init,
+                out_feature=args.hetero.cent_hidden if hasattr(args.hetero, 'cent_hidden') else args.hetero.hidden)
+        else:
             base2centroid_model = GNNMultiEdgeset(
                 conv=args.base2centroid.conv,
                 centroid_aggr=args.base2centroid.centroid_aggr,
@@ -89,9 +93,6 @@ def get_model(args, device):
                 activation=args.base2centroid.activation,
                 dropout=args.base2centroid.dropout,
             )
-        else:
-            base2centroid_model = DumbGNNMultiEdgeset(
-                out_feature=args.hetero.cent_hidden if hasattr(args.hetero, 'cent_hidden') else args.hetero.hidden)
     else:
         base2centroid_model = None
 
