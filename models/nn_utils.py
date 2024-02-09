@@ -29,6 +29,8 @@ def get_graph_pooling(graph_pooling):
         # pool = lambda x, edge_label_index: (x[edge_label_index[0]] * x[edge_label_index[1]]).sum(1, keepdims=True)
         pool = lambda x, *args: x
         graph_pool_idx = 'edge_label_index'
+    elif graph_pooling is None:
+        pool = lambda x, *args: x
     else:
         raise NotImplementedError
     return pool, graph_pool_idx

@@ -67,6 +67,52 @@ class MyOGBAtomEncoder(torch.nn.Module):
         return self.embedding(data.x)
 
 
+class COCONodeEncoder(torch.nn.Module):
+    # https://github.com/toenshoff/LRGB/blob/main/graphgps/encoder/voc_superpixels_encoder.py#L68
+    def __init__(self, emb_dim):
+        super().__init__()
+
+        node_x_mean = torch.tensor([
+            4.6977347e-01, 4.4679317e-01, 4.0790915e-01, 7.0808627e-02,
+            6.8686441e-02, 6.8498217e-02, 6.7777938e-01, 6.5244222e-01,
+            6.2096798e-01, 2.7554795e-01, 2.5910738e-01, 2.2901227e-01,
+            2.4261935e+02, 2.8985367e+02
+        ])
+        node_x_std = torch.tensor([
+            2.6218116e-01, 2.5831082e-01, 2.7416739e-01, 5.7440419e-02,
+            5.6832556e-02, 5.7100497e-02, 2.5929087e-01, 2.6201612e-01,
+            2.7675411e-01, 2.5456995e-01, 2.5140920e-01, 2.6182330e-01,
+            1.5152475e+02, 1.7630779e+02
+        ])
+
+        self.register_buffer('node_x_mean', node_x_mean)
+        self.register_buffer('node_x_std', node_x_std)
+        self.encoder = torch.nn.Linear(14, emb_dim)
+
+    def forward(self, batch):
+        x = batch.x - self.node_x_mean.view(1, -1)
+        x /= self.node_x_std.view(1, -1)
+        x = self.encoder(x)
+        return x
+
+
+class COCOEdgeEncoder(torch.nn.Module):
+    # https://github.com/toenshoff/LRGB/blob/main/graphgps/encoder/voc_superpixels_encoder.py#L97
+    def __init__(self, emb_dim):
+        super().__init__()
+        edge_x_mean = torch.tensor([0.07848548, 43.68736])
+        edge_x_std = torch.tensor([0.08902349, 28.473562])
+        self.register_buffer('edge_x_mean', edge_x_mean)
+        self.register_buffer('edge_x_std', edge_x_std)
+        self.encoder = torch.nn.Linear(2, emb_dim)
+
+    def forward(self, edge_attr):
+        edge_attr = edge_attr - self.edge_x_mean.view(1, -1)
+        edge_attr /= self.edge_x_std.view(1, -1)
+        edge_attr = self.encoder(edge_attr)
+        return edge_attr
+
+
 class FeatureEncoder(torch.nn.Module):
 
     def __init__(self,
@@ -307,6 +353,8 @@ def get_atom_encoder(atom_encoder: str,
             return EXPAtomEncoder(hidden)
         elif atom_encoder == 'linear':
             return LinearEncoder(in_feature, hidden)
+        elif atom_encoder == 'coco':
+            return COCONodeEncoder(hidden)
         else:
             raise NotImplementedError
 
@@ -320,5 +368,7 @@ def get_bond_encoder(bond_encoder: str, hidden: int, in_features: int = None):
         return LinearBondEncoder(in_features, hidden)
     elif bond_encoder is None:
         return None
+    elif bond_encoder == 'coco':
+        return COCOEdgeEncoder(hidden)
     else:
         raise NotImplementedError
