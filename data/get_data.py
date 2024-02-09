@@ -99,6 +99,9 @@ def get_data(args: Config, force_subset):
         task = 'node'
     elif args.dataset.lower().startswith('peptides'):
         train_set, val_set, test_set, std = get_lrgb(args, force_subset)
+    elif args.dataset.lower() == 'coco-sp':
+        task = 'node'
+        train_set, val_set, test_set, std = get_lrgb(args, force_subset)
     elif args.dataset.lower() == 'pcqm-contact':
         task = 'edge'
         train_set, val_set, test_set, std = get_lrgb(args, force_subset)

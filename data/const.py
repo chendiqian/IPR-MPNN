@@ -1,4 +1,6 @@
 from torch import nn
+from data.utils import weighted_cross_entropy
+
 
 DATASET_FEATURE_STAT_DICT = {
     'zinc': {'node': 21, 'edge': 4, 'num_class': 1},  # regression
@@ -31,6 +33,7 @@ DATASET_FEATURE_STAT_DICT = {
     'peptides-struct': {'node': 9, 'edge': 4, 'num_class': 11},  # regression, but 11 labels
     'peptides-func': {'node': 9, 'edge': 4, 'num_class': 10},  # 10-way classification
     'pcqm-contact': {'node': 9, 'edge': 3, 'num_class': None},  # edge prediction, but set it None!
+    'coco-sp': {'node': 14, 'edge': 2, 'num_class': 81},
     'tree_2': {'node': 4, 'edge': 0, 'num_class': 4},
     'tree_3': {'node': 8, 'edge': 0, 'num_class': 8},
     'tree_4': {'node': 16, 'edge': 0, 'num_class': 16},
@@ -70,6 +73,8 @@ TASK_TYPE_DICT = {
     'peptides-struct': 'mae',
     'peptides-func': 'ap',
     'pcqm-contact': 'mrr_self_filtered',
+    'coco-sp': 'f1_macro',
+
     'ogbg-molesol': 'rmse',
     'ogbg-molbace': 'rocauc',
     'ogbg-molhiv': 'rocauc',
@@ -123,6 +128,7 @@ CRITERION_DICT = {
     'peptides-struct': nn.L1Loss(),
     'peptides-func': nn.BCEWithLogitsLoss(),
     'pcqm-contact': nn.BCEWithLogitsLoss(),
+    'coco-sp': weighted_cross_entropy,
     'ogbg-molesol': nn.MSELoss(),
     'ogbg-molbace': nn.BCEWithLogitsLoss(),
     'ogbg-molhiv': nn.BCEWithLogitsLoss(),
@@ -169,6 +175,7 @@ SCHEDULER_MODE = {
     'ap': 'max',
     'mrr': 'max',
     'mrr_self_filtered': 'max',
+    'f1_macro': 'max',
 }
 
 ENCODER_TYPE_DICT = {
@@ -176,6 +183,7 @@ ENCODER_TYPE_DICT = {
     'peptides-func': {'bond': 'ogb', 'atom': 'ogb'},
     'peptides-struct': {'bond': 'ogb', 'atom': 'ogb'},
     'pcqm-contact': {'bond': 'ogb', 'atom': 'ogb'},
+    'coco-sp': {'bond': 'coco', 'atom': 'coco'},
     'cornell': {'bond': None, 'atom': 'linear'},
     'amazon-ratings': {'bond': None, 'atom': 'linear'},
     'csl': {'bond': 'linear', 'atom': 'linear'},
