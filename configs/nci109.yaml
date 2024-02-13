@@ -2,11 +2,11 @@ wandb:
     use_wandb: true
     project: TUDatasets
     entity: mls-stuttgart
-    name: PROTEINS
+    name: NCI109
 
 ckpt: false
 
-dataset: PROTEINS_full
+dataset: NCI109
 data_path: ./datasets
 batch_size: 128
 lr: 1.e-3
