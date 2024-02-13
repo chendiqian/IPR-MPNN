@@ -96,7 +96,7 @@ def main(args, wandb):
                 no_wd = []
 
             # optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-            optimizer = optim.Adam([{'params': no_wd, 'weight_decay': 0.},
+            optimizer = optim.AdamW([{'params': no_wd, 'weight_decay': 0.},
                                     {'params': wd, 'weight_decay': args.weight_decay}],
                                    lr=args.lr)
             scheduler = get_scheduler(args, optimizer)

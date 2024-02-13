@@ -7,7 +7,7 @@ DATASET_FEATURE_STAT_DICT = {
     'mutag': {'node': 7, 'edge': 4, 'num_class': 1},  # bin classification
     'alchemy': {'node': 6, 'edge': 4, 'num_class': 12},  # regression, but 12 labels
 
-    'proteins': {'node': 3, 'edge': 0, 'num_class': 1},  # bin classification
+    'proteins_full': {'node': 3, 'edge': 0, 'num_class': 1},  # bin classification
     'ptc_mr': {'node': 18, 'edge': 4, 'num_class': 1},  # bin classification
     'nci1': {'node': 37, 'edge': 0, 'num_class': 1},  # bin classification
     'nci109': {'node': 38, 'edge': 0, 'num_class': 1},  # bin classification
@@ -61,7 +61,7 @@ DATASET_FEATURE_STAT_DICT = {
 TASK_TYPE_DICT = {
     'zinc': 'mae',
     'alchemy': 'mae',
-    'proteins': 'rocauc',
+    'proteins_full': 'rocauc',
     'mutag': 'rocauc',
     'ptc_mr': 'rocauc',
     'nci1': 'rocauc',
@@ -115,7 +115,7 @@ TASK_TYPE_DICT = {
 CRITERION_DICT = {
     'zinc': nn.L1Loss(),
     'alchemy': nn.L1Loss(),
-    'proteins': nn.BCEWithLogitsLoss(),
+    'proteins_full': nn.BCEWithLogitsLoss(),
     'mutag': nn.BCEWithLogitsLoss(),
     'ptc_mr': nn.BCEWithLogitsLoss(),
     'nci1': nn.BCEWithLogitsLoss(),
@@ -188,6 +188,11 @@ ENCODER_TYPE_DICT = {
     'amazon-ratings': {'bond': None, 'atom': 'linear'},
     'csl': {'bond': 'linear', 'atom': 'linear'},
     'exp': {'bond': None, 'atom': 'exp'},
+    'proteins_full': {'bond': None, 'atom': 'linear'},
+    'nci1': {'bond': None, 'atom': 'linear'},
+    'nci109': {'bond': None, 'atom': 'linear'},
+    'ptc_mr': {'bond': 'linear', 'atom': 'linear'},
+    'mutag': {'bond': 'linear', 'atom': 'linear'},
 }
 
 # whether to set cached=True for GCNConv, only True if transductive

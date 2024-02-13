@@ -4,7 +4,7 @@ from functools import partial
 from typing import List, Optional
 
 from torch.utils.data import Subset
-from torch_geometric.datasets import (ZINC, WebKB,
+from torch_geometric.datasets import (ZINC, WebKB, TUDataset,
                                       LRGBDataset,
                                       GNNBenchmarkDataset,
                                       HeterophilousGraphDataset)
@@ -30,7 +30,8 @@ DATASET = (ZINC,
            PlanarSATPairsDataset,
            GNNBenchmarkDataset,
            Subset,
-           HeterophilousGraphDataset)
+           HeterophilousGraphDataset,
+           TUDataset)
 
 # sort keys, some pre_transform should be executed first
 PRETRANSFORM_PRIORITY = {
@@ -109,6 +110,8 @@ def get_data(args: Config, force_subset):
         train_set, val_set, test_set, std = get_exp_dataset(args, force_subset)
     elif args.dataset.lower() == 'csl':
         train_set, val_set, test_set, std = get_CSL(args, force_subset)
+    elif args.dataset in ['PROTEINS_full', 'MUTAG', 'PTC_MR', 'NCI1', 'NCI109']:
+        train_set, val_set, test_set, std = get_TU(args, force_subset)
     else:
         raise ValueError
 
@@ -135,6 +138,40 @@ def get_data(args: Config, force_subset):
         test_loaders = None
 
     return train_loaders, val_loaders, test_loaders, task
+
+def get_TU(args: Config, force_subset: bool):
+    from torch.utils.data import random_split
+
+    pre_transform = get_pretransform(args)
+    transform = get_transform(args)
+
+    data_path = args.data_path
+    extra_path = get_additional_path(args)
+    if extra_path is not None:
+        data_path = os.path.join(data_path, extra_path)
+
+    dataset = TUDataset(data_path,
+                        name=args.dataset,
+                        transform=transform,
+                        pre_transform=pre_transform)
+
+    labels = dataset.data.y.tolist()
+    dataset.data.y = dataset.data.y.float().unsqueeze(1)
+
+    num_training = int(len(dataset) * 0.8)
+    num_val = int(len(dataset) * 0.1)
+    num_test = len(dataset) - num_val - num_training
+    train_set, val_set, test_set = random_split(dataset,
+                                                [num_training, num_val, num_test],
+                                                generator=torch.Generator().manual_seed(0))
+    
+
+    if args.debug or force_subset:
+        train_set = train_set[:1]
+        val_set = val_set[:1]
+        test_set = test_set[:1]
+
+    return train_set, val_set, test_set, None
 
 
 def get_zinc(args: Config, force_subset: bool):
