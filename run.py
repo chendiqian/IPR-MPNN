@@ -23,6 +23,7 @@ from visualize import Plotter
 
 from data.schedulers import get_scheduler
 
+QM9_TASK_NAMES = tasks = ["mu", "alpha", "HOMO", "LUMO", "gap", "R2", "ZPVE", "U0", "U", "H", "G", "Cv", "Omega"]
 
 def args_parser():
     parser = argparse.ArgumentParser('training')
@@ -162,6 +163,10 @@ def main(args, wandb):
     wandb.run.summary['best_val_metric_std'] = np.std(best_val_metrics)
     wandb.run.summary['test_metric'] = np.mean(test_metrics)
     wandb.run.summary['test_metric_std'] = np.std(test_metrics)
+    if args.dataset.lower() == 'qm9':
+        qm9_task_id = args.task_id
+        qm9_task_name = QM9_TASK_NAMES[qm9_task_id]
+        wandb.run.summary['qm9_task'] = qm9_task_name
 
 
 if __name__ == '__main__':

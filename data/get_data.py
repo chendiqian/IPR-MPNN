@@ -1,5 +1,6 @@
 import os
 import torch
+from collections import defaultdict
 from functools import partial
 from typing import List, Optional
 
@@ -8,6 +9,7 @@ from torch_geometric.datasets import (ZINC, WebKB, TUDataset,
                                       LRGBDataset,
                                       GNNBenchmarkDataset,
                                       HeterophilousGraphDataset)
+from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader as PyGDataLoader
 from torch_geometric.loader import PrefetchLoader
 
@@ -19,6 +21,7 @@ from torch_geometric.transforms import (Compose,
 from data.data_preprocess import AugmentWithPartition, AugmentWithDumbAttr, AddLaplacianEigenvectorPE, RenameLabel
 from data.planarsatpairsdataset import PlanarSATPairsDataset
 from data.utils import Config, AttributedDataLoader, get_all_split_idx, separate_data
+from data.qm9 import QM9
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -31,7 +34,8 @@ DATASET = (ZINC,
            GNNBenchmarkDataset,
            Subset,
            HeterophilousGraphDataset,
-           TUDataset)
+           TUDataset,
+           QM9)
 
 # sort keys, some pre_transform should be executed first
 PRETRANSFORM_PRIORITY = {
@@ -93,6 +97,8 @@ def get_data(args: Config, force_subset):
         os.mkdir(args.data_path)
 
     task = 'graph'
+    qm9_task_id = None
+    separate_std = 'qm9' in args.dataset.lower()
     if args.dataset.lower() == 'zinc':
         train_set, val_set, test_set, std = get_zinc(args, force_subset)
     elif args.dataset.lower() in ['amazon-ratings', 'cornell', 'texas', 'wisconsin']:
@@ -112,10 +118,11 @@ def get_data(args: Config, force_subset):
         train_set, val_set, test_set, std = get_CSL(args, force_subset)
     elif args.dataset in ['PROTEINS_full', 'MUTAG', 'PTC_MR', 'NCI1', 'NCI109']:
         train_set, val_set, test_set, std = get_TU(args, force_subset)
+    elif args.dataset.lower() == 'qm9':
+        train_set, val_set, test_set, std = get_qm9(args, force_subset)
     else:
         raise ValueError
 
-    assert std is None
     dataloader = partial(PyGDataLoader,
                          batch_size=args.batch_size,
                          shuffle=not args.debug,
@@ -172,6 +179,79 @@ def get_TU(args: Config, force_subset: bool):
         test_set = test_set[:1]
 
     return train_set, val_set, test_set, None
+
+
+
+def get_qm9(args: Config, force_subset: bool):
+    pre_transform = get_pretransform(args)
+    transform = get_transform(args)
+
+    data_path = os.path.join(args.data_path, 'QM9')
+    extra_path = get_additional_path(args)
+    if extra_path is not None:
+        data_path = os.path.join(data_path, extra_path)
+
+    if hasattr(args, 'task_id'):
+        if isinstance(args.task_id, int):
+            assert 0 <= args.task_id <= 12
+            task_id = args.task_id
+        else:
+            raise TypeError
+    else:
+        raise ValueError('task_id not specified')
+
+    dataset_lists = defaultdict(list)
+
+    for split in ['train', 'valid', 'test']:
+
+        dataset = QM9(data_path,
+                      split=split,
+                      transform=transform,
+                      pre_transform=pre_transform)
+
+        new_data = Data()
+        for k, v in dataset._data._store.items():
+            if k != 'y':
+                setattr(new_data, k, v)
+            else:
+                setattr(new_data, k, v[:, task_id:task_id + 1])
+
+        d = QM9(data_path,
+                split=split,
+                return_data=False,
+                transform=transform,
+                pre_transform=pre_transform)
+        d.data = new_data
+        dataset_lists[split].append(d)
+
+    train_set = dataset_lists['train']
+    val_set = dataset_lists['valid']
+    test_set = dataset_lists['test']
+
+    if args.debug or force_subset:
+        train_set = [t[:16] for t in train_set]
+        val_set = [t[:16] for t in val_set]
+        test_set = [t[:16] for t in test_set]
+
+    # https://github.com/radoslav11/SP-MPNN/blob/main/src/experiments/run_gr.py#L22
+    norm_const = [
+        0.066513725,
+        0.012235489,
+        0.071939046,
+        0.033730778,
+        0.033486113,
+        0.004278493,
+        0.001330901,
+        0.004165489,
+        0.004128926,
+        0.00409976,
+        0.004527465,
+        0.012292586,
+        0.037467458,
+    ]
+    std = 1. / torch.tensor(norm_const, dtype=torch.float)
+
+    return train_set, val_set, test_set, std[task_id]
 
 
 def get_zinc(args: Config, force_subset: bool):
