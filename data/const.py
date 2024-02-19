@@ -193,6 +193,7 @@ ENCODER_TYPE_DICT = {
     'nci109': {'bond': None, 'atom': 'linear'},
     'ptc_mr': {'bond': 'linear', 'atom': 'linear'},
     'mutag': {'bond': 'linear', 'atom': 'linear'},
+    'qm9': {'bond': 'linear', 'atom': 'linear'}
 }
 
 # whether to set cached=True for GCNConv, only True if transductive

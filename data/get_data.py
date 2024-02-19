@@ -224,14 +224,14 @@ def get_qm9(args: Config, force_subset: bool):
         d.data = new_data
         dataset_lists[split].append(d)
 
-    train_set = dataset_lists['train']
-    val_set = dataset_lists['valid']
-    test_set = dataset_lists['test']
+    train_set = dataset_lists['train'][0]
+    val_set = dataset_lists['valid'][0]
+    test_set = dataset_lists['test'][0]
 
     if args.debug or force_subset:
-        train_set = [t[:16] for t in train_set]
-        val_set = [t[:16] for t in val_set]
-        test_set = [t[:16] for t in test_set]
+        train_set = train_set[:16]
+        val_set = val_set[:16]
+        test_set = test_set[:16]
 
     # https://github.com/radoslav11/SP-MPNN/blob/main/src/experiments/run_gr.py#L22
     norm_const = [
