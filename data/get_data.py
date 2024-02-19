@@ -229,9 +229,9 @@ def get_qm9(args: Config, force_subset: bool):
     test_set = dataset_lists['test'][0]
 
     if args.debug or force_subset:
-        train_set = train_set[:16]
-        val_set = val_set[:16]
-        test_set = test_set[:16]
+        train_set = train_set[:1]
+        val_set = val_set[:1]
+        test_set = test_set[:1]
 
     # https://github.com/radoslav11/SP-MPNN/blob/main/src/experiments/run_gr.py#L22
     norm_const = [
