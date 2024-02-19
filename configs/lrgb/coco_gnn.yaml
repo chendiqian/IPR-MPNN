@@ -1,0 +1,34 @@
+wandb:
+    use_wandb: false
+    project: coco
+    entity: chendiqian
+    name: gnn-l5
+
+ckpt: false
+
+dataset: coco-sp
+data_path: /work/log1/chendi.qian/datasets
+batch_size: 256
+lr: 1.e-3
+weight_decay: 0.
+debug: true
+num_runs: 1
+max_epoch: 200
+min_epoch: 100
+patience: 100
+log_test: True
+
+# encoder
+encoder: null
+
+gnn:
+    jk: none
+    conv: gine
+    hidden: 192
+    num_conv_layers: 6
+    norm: batch_norm
+    activation: gelu
+    dropout: 0.
+
+    pred_layer: 2
+    graph_pool: null
