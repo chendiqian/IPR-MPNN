@@ -91,6 +91,8 @@ class Trainer:
 
         preds = torch.cat(preds, dim=0)
         labels = torch.cat(labels, dim=0)
+        preds = preds * loader.std if loader.std is not None else preds
+        labels = labels * loader.std if loader.std is not None else labels
         val_metric: Dict = self.evaluator(labels, preds)
         if scheduler is not None:
             scheduler.step(epoch) if 'LambdaLR' in str(type(scheduler)) else scheduler.step(val_metric[self.target_metric])
