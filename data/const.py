@@ -195,6 +195,20 @@ ENCODER_TYPE_DICT = {
     'mutag': {'bond': 'linear', 'atom': 'linear'},
     'qm9': {'bond': 'linear', 'atom': 'linear'},
     'alchemy': {'bond': 'linear', 'atom': 'linear'},
+    'tree_2': {'bond': None, 'atom': 'bi_embedding'},
+    'tree_3': {'bond': None, 'atom': 'bi_embedding'},
+    'tree_4': {'bond': None, 'atom': 'bi_embedding'},
+    'tree_5': {'bond': None, 'atom': 'bi_embedding'},
+    'tree_6': {'bond': None, 'atom': 'bi_embedding'},
+    'tree_7': {'bond': None, 'atom': 'bi_embedding'},
+    'tree_8': {'bond': None, 'atom': 'bi_embedding'},
+    'leafcolor_2': {'bond': None, 'atom': 'bi_embedding_cat'},
+    'leafcolor_3': {'bond': None, 'atom': 'bi_embedding_cat'},
+    'leafcolor_4': {'bond': None, 'atom': 'bi_embedding_cat'},
+    'leafcolor_5': {'bond': None, 'atom': 'bi_embedding_cat'},
+    'leafcolor_6': {'bond': None, 'atom': 'bi_embedding_cat'},
+    'leafcolor_7': {'bond': None, 'atom': 'bi_embedding_cat'},
+    'leafcolor_8': {'bond': None, 'atom': 'bi_embedding_cat'},
 }
 
 # whether to set cached=True for GCNConv, only True if transductive

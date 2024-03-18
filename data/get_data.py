@@ -23,6 +23,7 @@ from data.planarsatpairsdataset import PlanarSATPairsDataset
 from data.utils import Config, AttributedDataLoader, get_all_split_idx, separate_data
 from data.qm9 import QM9
 from data.alchemy import MyTUDataset
+from data.tree_dataset import MyTreeDataset, MyLeafColorDataset
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -36,6 +37,8 @@ DATASET = (ZINC,
            Subset,
            HeterophilousGraphDataset,
            TUDataset,
+           MyTreeDataset,
+           MyLeafColorDataset,
            QM9)
 
 # sort keys, some pre_transform should be executed first
@@ -104,6 +107,10 @@ def get_data(args: Config, force_subset):
         train_set, val_set, test_set, std = get_zinc(args, force_subset)
     elif args.dataset.lower() == 'alchemy':
         train_set, val_set, test_set, std = get_alchemy(args, force_subset)
+    elif args.dataset.lower().startswith('tree'):
+        train_set, val_set, test_set, std = get_treedataset(args, force_subset)
+    elif args.dataset.lower().startswith('leafcolor'):
+        train_set, val_set, test_set, std = get_leafcolordataset(args, force_subset=force_subset)
     elif args.dataset.lower() in ['amazon-ratings', 'cornell', 'texas', 'wisconsin']:
         train_set, val_set, test_set, std = get_hetero(args, force_subset)
         task = 'node'
@@ -148,6 +155,60 @@ def get_data(args: Config, force_subset):
         test_loaders = None
 
     return train_loaders, val_loaders, test_loaders, task
+
+
+def get_leafcolordataset(args: Config, force_subset: bool):
+    depth = int(args.dataset.lower().split('_')[1])
+    assert 2 <= depth <= 8
+
+    pre_transform = get_pretransform(args)
+    transform = get_transform(args)
+
+    data_path = os.path.join(args.data_path, args.dataset)
+    extra_path = get_additional_path(args)
+    if extra_path is not None:
+        data_path = os.path.join(data_path, extra_path)
+
+    train_set = MyLeafColorDataset(data_path, True, 11, depth, transform=transform, pre_transform=pre_transform)
+    val_set = MyLeafColorDataset(data_path, False, 11, depth, transform=transform, pre_transform=pre_transform)
+    test_set = val_set
+
+    if args.debug or force_subset:
+        train_set = train_set[:16]
+        val_set = val_set[:16]
+        test_set = test_set[:16]
+
+    args['num_classes'] = max([s.y.item() for s in train_set]) + 1
+
+    return train_set, val_set, test_set, None
+
+
+def get_treedataset(args: Config, force_subset: bool):
+    depth = int(args.dataset.lower().split('_')[1])
+    assert 2 <= depth <= 8
+
+    pre_transform = get_pretransform(args)
+    # pre_transform = get_pretransform(args, extra_pretransforms=[GraphCoalesce(), GraphRedirect(depth)])
+    transform = get_transform(args)
+
+    data_path = os.path.join(args.data_path, args.dataset)
+    extra_path = get_additional_path(args)
+    if extra_path is not None:
+        data_path = os.path.join(data_path, extra_path)
+
+    train_set = MyTreeDataset(data_path, True, 11, depth, transform=transform, pre_transform=pre_transform)
+    val_set = MyTreeDataset(data_path, False, 11, depth, transform=transform, pre_transform=pre_transform)
+    # min is 1
+    train_set.data.y -= 1
+    val_set.data.y -= 1
+    test_set = val_set
+
+    if args.debug or force_subset:
+        train_set = train_set[:16]
+        val_set = val_set[:16]
+        test_set = test_set[:16]
+
+    return train_set, val_set, test_set, None
 
 def get_TU(args: Config, force_subset: bool):
     from torch.utils.data import random_split

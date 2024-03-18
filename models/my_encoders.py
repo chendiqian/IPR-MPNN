@@ -1,4 +1,5 @@
 import torch
+from torch import nn as nn
 from torch_geometric.nn import MLP
 from ogb.graphproppred.mol_encoder import AtomEncoder as OGB_AtomEncoder, BondEncoder as OGB_BondEncoder
 
@@ -45,6 +46,47 @@ class LinearEncoder(torch.nn.Module):
 
     def forward(self, data):
         return self.embedding(data.x)
+    
+class BiEmbedding(torch.nn.Module):
+    def __init__(self,
+                 dim_in,
+                 hidden,):
+        super(BiEmbedding, self).__init__()
+        self.layer0_keys = nn.Embedding(num_embeddings=dim_in + 1, embedding_dim=hidden)
+        self.layer0_values = nn.Embedding(num_embeddings=dim_in + 1, embedding_dim=hidden)
+
+    def forward(self, data):
+        x = data.x
+        x_key, x_val = x[:, 0], x[:, 1]
+        x_key_embed = self.layer0_keys(x_key)
+        x_val_embed = self.layer0_values(x_val)
+        x = x_key_embed + x_val_embed
+        return x
+
+    def reset_parameters(self):
+        self.layer0_keys.reset_parameters()
+        self.layer0_values.reset_parameters()
+
+class BiEmbeddingCat(torch.nn.Module):
+    def __init__(self,
+                 n_nodes,
+                 n_features,
+                 hidden,):
+        super(BiEmbeddingCat, self).__init__()
+        self.emb_node = nn.Embedding(num_embeddings=n_nodes, embedding_dim=hidden)
+        self.emb_feature = nn.Embedding(num_embeddings=n_features, embedding_dim=hidden)
+
+    def forward(self, data):
+        x = data.x
+        x_node, x_feature = x[:, 0], x[:, 1]
+        node_emb = self.emb_node(x_node)
+        feature_emb = self.emb_feature(x_feature)
+        x = torch.cat([node_emb, feature_emb], dim=-1)
+        return x
+
+    def reset_parameters(self):
+        self.layer0_keys.reset_parameters()
+        self.layer0_values.reset_parameters()
 
 
 class LinearBondEncoder(torch.nn.Module):
@@ -353,6 +395,11 @@ def get_atom_encoder(atom_encoder: str,
             return EXPAtomEncoder(hidden)
         elif atom_encoder == 'linear':
             return LinearEncoder(in_feature, hidden)
+        elif atom_encoder == 'bi_embedding':
+            return BiEmbedding(in_feature, hidden)
+        elif atom_encoder == 'bi_embedding_cat':
+            assert hidden % 2 == 0, 'hidden size must be even'
+            return BiEmbeddingCat(n_nodes=in_feature, n_features=2, hidden=hidden // 2)
         elif atom_encoder == 'coco':
             return COCONodeEncoder(hidden)
         else:
