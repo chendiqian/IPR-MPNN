@@ -22,6 +22,7 @@ from data.data_preprocess import AugmentWithPartition, AugmentWithDumbAttr, AddL
 from data.planarsatpairsdataset import PlanarSATPairsDataset
 from data.utils import Config, AttributedDataLoader, get_all_split_idx, separate_data
 from data.qm9 import QM9
+from data.alchemy import MyTUDataset
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -101,6 +102,8 @@ def get_data(args: Config, force_subset):
     separate_std = 'qm9' in args.dataset.lower()
     if args.dataset.lower() == 'zinc':
         train_set, val_set, test_set, std = get_zinc(args, force_subset)
+    elif args.dataset.lower() == 'alchemy':
+        train_set, val_set, test_set, std = get_alchemy(args, force_subset)
     elif args.dataset.lower() in ['amazon-ratings', 'cornell', 'texas', 'wisconsin']:
         train_set, val_set, test_set, std = get_hetero(args, force_subset)
         task = 'node'
@@ -253,6 +256,50 @@ def get_qm9(args: Config, force_subset: bool):
 
     return train_set, val_set, test_set, std[task_id]
 
+def get_alchemy(args: Config, force_subset: bool):
+    pre_transform = get_pretransform(args)
+    transform = get_transform(args)
+
+    data_path = args.data_path
+    extra_path = get_additional_path(args)
+    if extra_path is not None:
+        data_path = os.path.join(data_path, extra_path)
+
+    infile = open("datasets/indices/train_al_10.index", "r")
+    for line in infile:
+        indices_train = line.split(",")
+        indices_train = [int(i) for i in indices_train]
+
+    infile = open("datasets/indices/val_al_10.index", "r")
+    for line in infile:
+        indices_val = line.split(",")
+        indices_val = [int(i) for i in indices_val]
+
+    infile = open("datasets/indices/test_al_10.index", "r")
+    for line in infile:
+        indices_test = line.split(",")
+        indices_test = [int(i) for i in indices_test]
+
+    dataset = MyTUDataset(data_path,
+                          name="alchemy_full",
+                          index=indices_train + indices_val + indices_test,
+                          transform=transform,
+                          pre_transform=pre_transform)
+
+    mean = dataset.data.y.mean(dim=0, keepdim=True)
+    std = dataset.data.y.std(dim=0, keepdim=True)
+    dataset.data.y = (dataset.data.y - mean) / std
+
+    train_set = dataset[:len(indices_train)]
+    val_set = dataset[len(indices_train): len(indices_train) + len(indices_val)]
+    test_set = dataset[-len(indices_test):]
+
+    if args.debug or force_subset:
+        train_set = train_set[:16]
+        val_set = val_set[:16]
+        test_set = test_set[:16]
+
+    return train_set, val_set, test_set, std
 
 def get_zinc(args: Config, force_subset: bool):
     pre_transform = get_pretransform(args)
