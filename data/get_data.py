@@ -356,9 +356,9 @@ def get_alchemy(args: Config, force_subset: bool):
     test_set = dataset[-len(indices_test):]
 
     if args.debug or force_subset:
-        train_set = train_set[:16]
-        val_set = val_set[:16]
-        test_set = test_set[:16]
+        train_set = train_set[:1]
+        val_set = val_set[:1]
+        test_set = test_set[:1]
 
     return train_set, val_set, test_set, std
 
