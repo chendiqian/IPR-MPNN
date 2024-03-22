@@ -73,7 +73,7 @@ sampler:
 
 hybrid_model:
     jk: identity
-    target: both
+    target: base
     inter_pred_layer: 3
     intra_pred_layer: 2
     inter_ensemble_pool: mean
