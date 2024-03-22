@@ -183,6 +183,7 @@ ENCODER_TYPE_DICT = {
     'peptides-func': {'bond': 'ogb', 'atom': 'ogb'},
     'peptides-struct': {'bond': 'ogb', 'atom': 'ogb'},
     'pcqm-contact': {'bond': 'ogb', 'atom': 'ogb'},
+    'ogbg-molhiv': {'bond': 'ogb', 'atom': 'ogb'},
     'coco-sp': {'bond': 'coco', 'atom': 'coco'},
     'cornell': {'bond': None, 'atom': 'linear'},
     'amazon-ratings': {'bond': None, 'atom': 'linear'},

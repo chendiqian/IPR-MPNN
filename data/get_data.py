@@ -9,6 +9,7 @@ from torch_geometric.datasets import (ZINC, WebKB, TUDataset,
                                       LRGBDataset,
                                       GNNBenchmarkDataset,
                                       HeterophilousGraphDataset)
+from ogb.graphproppred import PygGraphPropPredDataset
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader as PyGDataLoader
 from torch_geometric.loader import PrefetchLoader
@@ -39,7 +40,8 @@ DATASET = (ZINC,
            TUDataset,
            MyTreeDataset,
            MyLeafColorDataset,
-           QM9)
+           QM9,
+           PygGraphPropPredDataset)
 
 # sort keys, some pre_transform should be executed first
 PRETRANSFORM_PRIORITY = {
@@ -101,8 +103,6 @@ def get_data(args: Config, force_subset):
         os.mkdir(args.data_path)
 
     task = 'graph'
-    qm9_task_id = None
-    separate_std = 'qm9' in args.dataset.lower()
     if args.dataset.lower() == 'zinc':
         train_set, val_set, test_set, std = get_zinc(args, force_subset)
     elif args.dataset.lower() == 'alchemy':
@@ -130,6 +130,8 @@ def get_data(args: Config, force_subset):
         train_set, val_set, test_set, std = get_TU(args, force_subset)
     elif args.dataset.lower() == 'qm9':
         train_set, val_set, test_set, std = get_qm9(args, force_subset)
+    elif args.dataset.lower().startswith('ogb'):
+        train_set, val_set, test_set, std = get_ogbg_data(args, force_subset)
     else:
         raise ValueError
 
@@ -155,6 +157,39 @@ def get_data(args: Config, force_subset):
         test_loaders = None
 
     return train_loaders, val_loaders, test_loaders, task
+
+
+def get_ogbg_data(args: Config, force_subset: bool):
+    pre_transform = get_pretransform(args)
+    transform = get_transform(args)
+
+    # if there are specific pretransforms, create individual folders for the dataset
+    datapath = args.data_path
+    extra_path = get_additional_path(args)
+    if extra_path is not None:
+        datapath = os.path.join(datapath, extra_path)
+
+    dataset = PygGraphPropPredDataset(name=args.dataset,
+                                      root=datapath,
+                                      transform=transform,
+                                      pre_transform=pre_transform)
+    dataset.data.y = dataset.data.y.float()
+    split_idx = dataset.get_idx_split()
+
+    train_idx = split_idx["train"]
+    val_idx = split_idx["valid"]
+    test_idx = split_idx["test"]
+
+    if args.debug or force_subset:
+        train_idx = train_idx[:1]
+        val_idx = train_idx[:1]
+        test_idx = test_idx[:1]
+
+    train_set = dataset[train_idx]
+    val_set = dataset[val_idx]
+    test_set = dataset[test_idx]
+
+    return train_set, val_set, test_set, None
 
 
 def get_leafcolordataset(args: Config, force_subset: bool):

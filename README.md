@@ -11,4 +11,5 @@ pip install torch_scatter torch_sparse -f https://data.pyg.org/whl/torch-2.1.0+c
 pip install multimethod wandb
 pip install matplotlib seaborn ogb
 pip install gdown
+pip install ogb
 ```
