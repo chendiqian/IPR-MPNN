@@ -45,7 +45,7 @@ DATASET_FEATURE_STAT_DICT = {
     # maybe we can make the labels const and add the n_labels here
     'leafcolor_2': {'node': 7, 'tree_depth': 2, 'n_leaf_labels': 2},
     'leafcolor_3': {'node': 15, 'tree_depth': 3, 'n_leaf_labels': 2},
-    'leafcolor_4': {'node': 31, 'tree_depth': 4, 'n_leaf_labels': 2, 'num_class': 7},
+    'leafcolor_4': {'node': 31, 'edge': 0, 'tree_depth': 4, 'n_leaf_labels': 2, 'num_class': 7},
     'leafcolor_5': {'node': 63, 'tree_depth': 5, 'n_leaf_labels': 2},
     'leafcolor_6': {'node': 127, 'tree_depth': 6, 'n_leaf_labels': 2},
     'leafcolor_7': {'node': 255, 'tree_depth': 7, 'n_leaf_labels': 2},
