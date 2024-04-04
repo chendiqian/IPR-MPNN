@@ -47,13 +47,7 @@ scorer_model:
 
 # extract the base nodes to super nodes
 base2centroid:
-    conv: gine
-    num_conv_layers: 2
-    num_mlp_layers: 3
-    norm: batch_norm
-    activation: gelu
-    dropout: 0.
-    centroid_aggr: mean
+    lazy_init: rand
 
 
 # the hetero, hierarchical GNN
