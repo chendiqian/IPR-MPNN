@@ -19,6 +19,15 @@ AttributedDataLoader = namedtuple(
         'task',
     ])
 
+def create_nested_dict(flat_dict):
+    nested_dict = {}
+    for compound_key, value in flat_dict.items():
+        keys = compound_key.split(".")
+        d = nested_dict
+        for key in keys[:-1]:
+            d = d.setdefault(key, {})
+        d[keys[-1]] = value
+    return nested_dict
 
 class Config(dict):
     def __getattr__(self, key: str) -> Any:

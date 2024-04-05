@@ -1,0 +1,171 @@
+program: sweep_run.py
+method: bayes
+entity: mls-stuttgart
+project: molhiv-sweep-new
+name: molhiv-sweep-new
+run_cap: 400
+
+metric:
+  goal: maximize
+  name: best_val_metric
+
+early_terminate:
+  type: hyperband
+  s: 3
+  eta: 2
+  max_iter: 200  # needs to match epoch_num!
+
+parameters:
+  # read data
+  ckpt: 
+    value: False
+  dataset:
+    value: ogbg-molhiv
+  data_path:
+    value: './datasets'
+  batch_size:
+    values:
+      - 512
+      - 1024
+    distribution: categorical
+  lr: 
+    value: 1.e-3
+  weight_decay:
+    values:
+      - 0.0000
+      - 0.0005
+      - 0.0010
+    distribution: categorical
+  debug:
+    value: False
+  num_runs: 
+    value: 1
+  max_epoch: 
+    value: 200
+  min_epoch: 
+    value: 70
+  patience: 
+    value: 80
+  scheduler_type: 
+    value: cos_with_warmup
+  scheduler_patience:
+    values:
+      - 25
+      - 50
+      - 200
+    distribution: categorical
+  log_test:
+    value: True
+
+  encoder.rwse.kernel:
+      value: 20
+  encoder.rwse.layers:
+      value: 2
+  encoder.rwse.dim_pe:
+      value: 32
+  encoder.rwse.raw_norm_type:
+    value: 'BatchNorm'
+
+  scorer_model.conv:
+    value: gine
+  scorer_model.hidden: 
+    values:
+      - 64
+      - 128
+    distribution: categorical
+  scorer_model.num_conv_layers:
+    values: 
+      - 0
+      - 2
+      - 5
+    distribution: categorical
+  scorer_model.num_mlp_layers:
+    value: 2
+  scorer_model.norm:
+    value: batch_norm
+  scorer_model.activation:
+    value: gelu
+  scorer_model.dropout:
+    value: 0.
+  scorer_model.num_centroids:
+    values:
+      - 2
+      - 4
+    distribution: categorical
+
+  base2centroid.lazy_init:
+    value: rand
+
+  hetero.conv:
+    value: gine
+  hetero.hidden:
+    values:
+      - 64 
+      - 128
+      - 256
+    distribution: categorical
+  hetero.cent_hidden:
+    values: 
+      - 128
+      - 256
+      - 384
+    distribution: categorical
+  hetero.num_conv_layers:
+    values: 
+      - 3
+      - 5
+      - 8
+    distribution: categorical
+  hetero.num_mlp_layers:
+    values:
+      - 2
+      - 3
+    distribution: categorical
+  hetero.norm:
+    value: batch_norm
+  hetero.activation:
+    value: gelu
+  hetero.dropout:
+    value: 0.
+  hetero.residual:
+    value: True
+  hetero.delay:
+    value: 0
+  hetero.aggr:
+    value: cat
+  hetero.parallel:
+    value: True
+
+  sampler.name:
+    value: simple
+  sampler.sample_k:
+    value: 1  # by default 1, i.e., each node gets assigned to 1 centroid
+  sampler.num_ensemble:
+    value: 1
+  sampler.n_samples:
+    value: 2
+  sampler.assign_value:
+    values:
+      - True
+      - False
+    distribution: categorical
+
+  hybrid_model.jk:
+    values: 
+      - none
+      - identity
+    distribution: categorical
+  hybrid_model.target:
+    values:
+      - base
+      - centroid 
+      - both
+    distribution: categorical
+  hybrid_model.inter_pred_layer:
+    value: 2
+  hybrid_model.intra_pred_layer:
+    value: 2
+  hybrid_model.inter_ensemble_pool:
+    value: mean
+  hybrid_model.intra_graph_pool:
+    value: mean
