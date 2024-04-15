@@ -268,7 +268,9 @@ def get_TU(args: Config, force_subset: bool):
                         pre_transform=pre_transform)
 
     labels = dataset.data.y.tolist()
-    dataset.data.y = dataset.data.y.float().unsqueeze(1)
+
+    if args.dataset != 'IMDB-MULTI':  # imdb-multi is multi class clf
+        dataset.data.y = dataset.data.y.float().unsqueeze(1)
 
     # num_training = int(len(dataset) * 0.8)
     # num_val = int(len(dataset) * 0.1)
