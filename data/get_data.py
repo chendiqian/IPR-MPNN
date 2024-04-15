@@ -4,6 +4,7 @@ from collections import defaultdict
 from functools import partial
 from typing import List, Optional
 
+import numpy as np
 from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import Subset
 from torch_geometric.datasets import (ZINC, WebKB, TUDataset,
