@@ -128,7 +128,7 @@ def get_data(args: Config, force_subset):
         train_set, val_set, test_set, std = get_exp_dataset(args, force_subset)
     elif args.dataset.lower() == 'csl':
         train_set, val_set, test_set, std = get_CSL(args, force_subset)
-    elif args.dataset in ['PROTEINS_full', 'MUTAG', 'PTC_MR', 'NCI1', 'NCI109']:
+    elif args.dataset in ['PROTEINS_full', 'MUTAG', 'PTC_MR', 'NCI1', 'NCI109', 'IMDB-MULTI', 'IMDB-BINARY']:
         train_set, val_set, test_set, std = get_TU(args, force_subset)
     elif args.dataset.lower() == 'qm9':
         train_set, val_set, test_set, std = get_qm9(args, force_subset)
@@ -250,7 +250,11 @@ def get_treedataset(args: Config, force_subset: bool):
 def get_TU(args: Config, force_subset: bool):
     from torch.utils.data import random_split
 
-    pre_transform = get_pretransform(args)
+    if args.dataset.startswith('IMDB'):
+        extra = [AugmentWithDumbAttr()]
+    else:
+        extra = None
+    pre_transform = get_pretransform(args, extra_pretransforms=extra)
     transform = get_transform(args)
 
     data_path = args.data_path

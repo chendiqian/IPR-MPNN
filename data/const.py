@@ -11,8 +11,8 @@ DATASET_FEATURE_STAT_DICT = {
     'ptc_mr': {'node': 18, 'edge': 4, 'num_class': 1},  # bin classification
     'nci1': {'node': 37, 'edge': 0, 'num_class': 1},  # bin classification
     'nci109': {'node': 38, 'edge': 0, 'num_class': 1},  # bin classification
-    'imdb-m': {'node': 1, 'edge': 1, 'num_class': 3},  # classification
-    'imdb-b': {'node': 1, 'edge': 1, 'num_class': 1},  # bin classification
+    'imdb-multi': {'node': 1, 'edge': 1, 'num_class': 3},  # classification
+    'imdb-binary': {'node': 1, 'edge': 1, 'num_class': 1},  # bin classification
 
     'ogbg-molesol': {'node': 9, 'edge': 3, 'num_class': 1},  # regression
     'ogbg-molbace': {'node': 9, 'edge': 3, 'num_class': 1},  # bin classification
@@ -66,8 +66,8 @@ TASK_TYPE_DICT = {
     'ptc_mr': 'rocauc',
     'nci1': 'rocauc',
     'nci109': 'rocauc',
-    'imdb-m': 'acc',
-    'imdb-b': 'acc',
+    'imdb-multi': 'acc',
+    'imdb-binary': 'acc',
     'csl': 'acc',
 
     'peptides-struct': 'mae',
@@ -120,8 +120,8 @@ CRITERION_DICT = {
     'ptc_mr': nn.BCEWithLogitsLoss(),
     'nci1': nn.BCEWithLogitsLoss(),
     'nci109': nn.BCEWithLogitsLoss(),
-    'imdb-m': nn.CrossEntropyLoss(),
-    'imdb-b': nn.BCEWithLogitsLoss(),
+    'imdb-multi': nn.CrossEntropyLoss(),
+    'imdb-binary': nn.BCEWithLogitsLoss(),
     'csl': nn.CrossEntropyLoss(),
 
     'pcqm': nn.CrossEntropyLoss(),
@@ -194,6 +194,8 @@ ENCODER_TYPE_DICT = {
     'nci109': {'bond': None, 'atom': 'linear'},
     'ptc_mr': {'bond': 'linear', 'atom': 'linear'},
     'mutag': {'bond': 'linear', 'atom': 'linear'},
+    'imdb-multi': {'bond': 'linear', 'atom': 'linear'},
+    'imdb-binary': {'bond': 'linear', 'atom': 'linear'},
     'qm9': {'bond': 'linear', 'atom': 'linear'},
     'alchemy': {'bond': 'linear', 'atom': 'linear'},
     'tree_2': {'bond': None, 'atom': 'bi_embedding'},
