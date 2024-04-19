@@ -6,10 +6,11 @@ import networkx as nx
 import numpy as np
 import seaborn as sns
 import torch
+import torch_geometric
 import warnings
 from matplotlib import pyplot as plt
 from torch_geometric.data import Batch
-from torch_geometric.utils import to_networkx
+from torch_geometric.utils import to_networkx, to_undirected
 
 
 class Plotter:
@@ -31,6 +32,7 @@ class Plotter:
         self.plot_mask = hasattr(plot_args, 'mask') and plot_args.mask
         self.plot_score = hasattr(plot_args, 'score') and plot_args.score
         self.plot_graph = hasattr(plot_args, 'graph') and plot_args.graph
+        self.total_resistance = hasattr(plot_args, 'total_resistance') and plot_args.total_resistance
 
         for key in plot_args:
             if key not in ['mask', 'score', 'graph', 'plot_folder', 'plot_every']:
@@ -130,6 +132,58 @@ class Plotter:
                     os.unlink(tmp_path)
 
                 plt.close(fig)
+
+            if phase == 'val':
+                if self.total_resistance:
+                    
+                    def compute_total_resistance(graph):
+                        graph_nx = to_networkx(graph, to_undirected=True)
+                        lap = torch.tensor(nx.laplacian_matrix(graph_nx).todense().astype('float'))
+                        pinv = torch.linalg.pinv(lap, hermitian=True)
+                        pinv_diag = torch.diagonal(pinv)
+                        resistance_matrix = pinv_diag.unsqueeze(0) + pinv_diag.unsqueeze(1) - 2 * pinv
+                        total_resistance = resistance_matrix.sum()
+                        return total_resistance
+
+                    n_samples, nnodes, n_centroids, n_ensemble = node_mask.shape
+                    graphs = Batch.to_data_list(data)
+                    rewired_ds_resistance = []
+                    initial_ds_resistance = []
+                    print('Computing total resistance...')
+                    for g in graphs:
+                        initial_total_resistance = compute_total_resistance(g)
+                        initial_ds_resistance.append(initial_total_resistance.item())
+
+                        mask_idx = node_mask[0, :, :, 0] #doesn't support multiple samples and ensembles
+                        updated_edge_index = g.edge_index.clone()
+                        updated_node_list = g.x.clone()
+                        # print(updated_edge_index.shape)
+                        for cluster in range(mask_idx.shape[1]):
+                            mask = torch.tensor(mask_idx[:, cluster])
+                            nodes_connected_to_cluster = torch.where(mask)[0]
+                            new_node_idx = g.edge_index.max() + cluster + 1
+                            new_edges = torch.stack([torch.full_like(nodes_connected_to_cluster, new_node_idx), nodes_connected_to_cluster])
+                            updated_edge_index = torch.cat([updated_edge_index, to_undirected(new_edges).to(g.edge_index.device)], dim=1)
+                            new_random_node = torch.rand((1, g.x.shape[1]), device=g.x.device)
+                            updated_node_list = torch.cat([updated_node_list, new_random_node], dim=0)
+                        
+                        # print(updated_edge_index.shape)
+                        # print(updated_node_list.shape)
+                        g_updated = torch_geometric.data.Data(x=updated_node_list, edge_index=updated_edge_index)
+                        # g_nx = to_networkx(g_updated, to_undirected=True)
+                        # lap = torch.tensor(nx.laplacian_matrix(g_nx).todense().astype('float'))
+                        # pinv = torch.linalg.pinv(lap, hermitian=True)
+                        # pinv_diag = torch.diagonal(pinv)
+                        # resistance_matrix = pinv_diag.unsqueeze(0) + pinv_diag.unsqueeze(1) - 2 * pinv
+                        # total_resistance = resistance_matrix.sum()
+                        rewired_total_resistance = compute_total_resistance(g_updated)
+                        rewired_ds_resistance.append(rewired_total_resistance.item())
+                    
+                    print(f'Initial total resistance: {sum(initial_ds_resistance)}')
+                    print(f'Rewired total resistance: {sum(rewired_ds_resistance)}')
+                    wandb.log({f"initial_total_resistance_{phase}": sum(initial_ds_resistance)}, step=epoch)
+                    wandb.log({f"rewired_total_resistance_{phase}": sum(rewired_ds_resistance)}, step=epoch)
+
 
             if self.plot_graph:
                 n_samples, nnodes, n_centroids, n_ensemble = node_mask.shape
