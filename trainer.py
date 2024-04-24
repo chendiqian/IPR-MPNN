@@ -98,6 +98,107 @@ class Trainer:
             scheduler.step(epoch) if 'LambdaLR' in str(type(scheduler)) else scheduler.step(val_metric[self.target_metric])
         return val_losses.item() / num_instances, val_metric
 
+    def get_sensitivity(self, loader, model):
+        from functools import partial
+        from torch_geometric.data import Batch
+        from scipy.sparse import csr_matrix
+        from scipy.sparse.csgraph import shortest_path
+        import numpy as np
+        from torch.autograd.functional import jacobian
+        from tqdm import tqdm
+        import time
+
+        norms_same = []
+        norms_diff = []
+
+        for data in tqdm(loader.loader, desc='Computing sensitivity...'):
+            data = data.to(self.device)
+            graphs = Batch.to_data_list(data)
+
+            #this could be vmapped I think
+            for g in tqdm(graphs, desc='Computing sensitivity for each graph in batch...'):
+                g = g.cpu()
+                mat = csr_matrix(
+                    (
+                        np.ones(g.edge_index.shape[1]),
+                        (g.edge_index[0].numpy(), g.edge_index[1].numpy()),
+                    ),
+                    shape=(g.num_nodes, g.num_nodes),
+                )
+
+                mat = shortest_path(mat, directed=False, return_predecessors=False)
+                mat[np.isinf(mat)] = -1.
+                mat[mat == -1] = mat.max() + 1
+
+                candidate_idx = np.vstack(np.triu_indices(g.num_nodes, k=1))
+
+                distances = mat[candidate_idx[0], candidate_idx[1]]
+                most_distant_pair = candidate_idx[:, np.argsort(distances)[-1]]
+                u, v = most_distant_pair
+
+                batch_of_1 = Batch.from_data_list([g]).to(self.device)
+
+                (_, data_hetero, has_edge_attr), base_embeddings, centroid_embeddings = model(batch_of_1, return_for_sensitivity=True)
+
+                # get rid of final embedding
+                base_embeddings = base_embeddings[:-1]
+                centroid_embeddings = centroid_embeddings[:-1]
+
+                hetero_model = model.hetero_gnn
+
+                layers_list = [[i for i in range(start_layer, len(base_embeddings))] for start_layer in range(len(base_embeddings))]
+
+                def forward_fn(x, centr_emb, data, has_edge_attr, layer_list):
+                    input_embs = {
+                        "base": x,
+                        "centroid": centr_emb
+                    }
+                    base_embeddings = hetero_model.partial_forward(input_embs, data=data, has_edge_attr=has_edge_attr, layer_list=layer_list)
+                    return base_embeddings[-1][(u,v), :] #return the embeddings of the most distant pair
+                
+                layerwise_norms_same = []
+                layerwise_norms_diff = []
+
+                for layer_list, x, centr_emb in zip(layers_list, base_embeddings, centroid_embeddings):
+                    model_fwd = partial(forward_fn, centr_emb=centr_emb, data=data_hetero, has_edge_attr=has_edge_attr, layer_list=layer_list)
+                    out_u_idx, out_v_idx = 0, 1
+
+                    # tick = time.time()
+                    # j_i = jacobian(model_fwd, x, vectorize=True)
+                    # tock = time.time()
+                    # print('time taken for vectorized=true: ', tock - tick)
+                    # tick = time.time()
+                    # j_i_1 = jacobian(model_fwd, x)
+                    # tock = time.time()
+                    # print('time taken for vectorized=false: ', tock - tick)
+                    # #check if they are close
+                    # input_norm_1 = torch.linalg.norm(j_i_1[out_u_idx, :, v, :], ord='fro')
+                    # input_norm = torch.linalg.norm(j_i[out_u_idx, :, v, :], ord='fro')
+                    # print('Are jacobians norms close?', torch.allclose(input_norm, input_norm_1))
+                    # print('\n\n')
+
+                    j_i = jacobian(model_fwd, x, vectorize=True)
+
+                    norm_vv = torch.linalg.norm(j_i[out_v_idx, :, v, :], ord='fro')
+                    norm_uu = torch.linalg.norm(j_i[out_u_idx, :, u, :], ord='fro')
+                    norm_vv_plus_uu = norm_vv + norm_uu
+
+                    norm_vu = torch.linalg.norm(j_i[out_v_idx, :, u, :], ord='fro')
+                    norm_uv = torch.linalg.norm(j_i[out_u_idx, :, v, :], ord='fro')
+                    norm_vu_plus_uv = norm_vu + norm_uv
+
+                    layerwise_norms_same.append(norm_vv_plus_uu)
+                    layerwise_norms_diff.append(norm_vu_plus_uv)
+
+                norms_same.append(layerwise_norms_same)
+                norms_diff.append(layerwise_norms_diff)
+
+            print('Done computing sensitivity for batch...')
+            break
+
+        return norms_same, norms_diff
+
+
     def train_link_pred(self, train_loader, model, optimizer):
         model.train()
 

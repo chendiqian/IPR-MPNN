@@ -36,7 +36,7 @@ class HybridModel(torch.nn.Module):
         self.pred_head = pred_head
         self.auxloss_func = auxloss_func
 
-    def forward(self, data, for_plots_only=False):
+    def forward(self, data, for_plots_only=False, return_for_sensitivity=False):
         device = data.x.device
         plot_scores, plot_node_mask = None, None
 
@@ -123,11 +123,15 @@ class HybridModel(torch.nn.Module):
                 'edge_weight': None
             }
         )
-
+        
         list_base_embeddings, list_centroid_embeddings = self.hetero_gnn(
             data,
             new_data,
-            hasattr(data, 'edge_attr') and data.edge_attr is not None)
+            hasattr(data, 'edge_attr') and data.edge_attr is not None,
+            return_for_sensitivity)
+        
+        if return_for_sensitivity:
+            return (data, new_data, hasattr(data, 'edge_attr') and data.edge_attr is not None), list_base_embeddings, list_centroid_embeddings
 
         base_embedding = self.jk_func(list_base_embeddings)
         centroid_embedding = self.jk_func(list_centroid_embeddings)

@@ -384,7 +384,7 @@ class HeteroGNN(torch.nn.Module):
                     # aggr across different heterogeneity, e.g., cent and base to base
                     aggr=aggr))
 
-    def forward(self, old_data, data, has_edge_attr):
+    def forward(self, old_data, data, has_edge_attr, return_for_sensitivity=False):
         edge_index_dict, edge_weight_dict = data.edge_index_dict, data.edge_weight_dict
         edge_attr_dict = data.edge_attr_dict if has_edge_attr else {}
         batch_dict = data.batch_dict
@@ -405,8 +405,32 @@ class HeteroGNN(torch.nn.Module):
             new_x_dict = {k: F.dropout(new_x_dict[k], p=self.dropout, training=self.training) for k in keys}
             list_x_dict.append(new_x_dict)
         
-        list_x_dict = list_x_dict[1:] # Ignore input
+        if not return_for_sensitivity:
+            list_x_dict = list_x_dict[1:] # Ignore input
 
         base_embeddings = [xd['base'] for xd in list_x_dict]
         centroid_embeddings = [xd['centroid'] for xd in list_x_dict]
         return base_embeddings, centroid_embeddings
+    
+    def partial_forward(self, initial_emb, data, has_edge_attr, layer_list):
+        edge_index_dict, edge_weight_dict = data.edge_index_dict, data.edge_weight_dict
+        edge_attr_dict = data.edge_attr_dict if has_edge_attr else {}
+        batch_dict = data.batch_dict
+
+        list_x_dict = [initial_emb]
+
+        for i in layer_list:
+            h1 = list_x_dict[-1]
+            h2 = self.gnn_convs[i](list_x_dict, edge_index_dict, edge_attr_dict, edge_weight_dict, batch_dict)
+            keys = h2.keys()
+            if self.use_res:
+                new_x_dict = {k: residual(h1[k], F.gelu(h2[k])) for k in keys}
+            else:
+                new_x_dict = {k: F.gelu(h2[k]) for k in keys}
+            new_x_dict = {k: F.dropout(new_x_dict[k], p=self.dropout, training=self.training) for k in keys}
+            list_x_dict.append(new_x_dict)
+
+        list_x_dict = list_x_dict[1:] # Ignore input
+        base_embeddings = [xd['base'] for xd in list_x_dict]
+
+        return base_embeddings

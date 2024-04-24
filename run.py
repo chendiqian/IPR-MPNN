@@ -23,6 +23,9 @@ from visualize import Plotter
 
 from data.schedulers import get_scheduler
 
+import seaborn as sns
+import pickle as pkl
+
 QM9_TASK_NAMES = tasks = ["mu", "alpha", "HOMO", "LUMO", "gap", "R2", "ZPVE", "U0", "U", "H", "G", "Cv", "Omega"]
 
 def args_parser():
@@ -58,7 +61,8 @@ def main(args, wandb):
     # for visualization
     plotter = Plotter(device, args.plots if hasattr(args, 'plots') else None)
     if hasattr(args, 'plots') and args.plots is not None:
-        plot_train_loader, plot_val_loader, *_ = get_data(args, True)
+        # plot_train_loader, plot_val_loader, *_ = get_data(args, True)
+        plot_train_loader, plot_val_loader, *_ = get_data(args, False)
     else:
         plot_train_loader, plot_val_loader = None, None
 
@@ -145,7 +149,40 @@ def main(args, wandb):
                 pbar.set_postfix(log_dict)
                 wandb.log(log_dict)
 
+
+            if plotter.total_resistance:
+                # plot total resistance mean and std
+
+                initial_total_resistance_mean_epoch = plotter.initial_total_resistance_mean
+                initial_total_resistance_std_epoch = plotter.initial_total_resistance_std
+                rewired_total_resistance_mean_epoch = plotter.rewired_total_resistance_mean
+                rewired_total_resistance_std_epoch = plotter.rewired_total_resistance_std
+
+                # save the plot and dump the lists to disk
+
+                with open('initial_total_resistance_mean.pkl', 'wb') as f:
+                    pkl.dump(initial_total_resistance_mean_epoch, f)
+                with open('initial_total_resistance_std.pkl', 'wb') as f:
+                    pkl.dump(initial_total_resistance_std_epoch, f)
+                with open('rewired_total_resistance_mean.pkl', 'wb') as f:
+                    pkl.dump(rewired_total_resistance_mean_epoch, f)
+                with open('rewired_total_resistance_std.pkl', 'wb') as f:
+                    pkl.dump(rewired_total_resistance_std_epoch, f)
+
+
+
+
             model.load_state_dict(best_model)
+
+
+            norms_same, norms_diff = trainer.get_sensitivity(val_loader, model)
+
+            # dump them
+            with open('norms_same.pkl', 'wb') as f:
+                pkl.dump(norms_same, f)
+            with open('norms_diff.pkl', 'wb') as f:
+                pkl.dump(norms_diff, f)
+
             with torch.no_grad():
                 test_loss, test_metric = trainer.test(test_loader, model, None)
             test_metrics[_run].append(test_metric[target_metric])
