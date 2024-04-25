@@ -60,7 +60,8 @@ hetero:
     conv: gine
     # c2b: gat
     # b2c: gat
-    hidden: 192
+    hidden: 128
+    cent_hidden: 256
     num_conv_layers: 8
     num_mlp_layers: 2
     norm: batch_norm
@@ -85,7 +86,7 @@ hybrid_model:
     inter_pred_layer: 2
     intra_pred_layer: 2
     inter_ensemble_pool: mean
-    intra_graph_pool: mean
+    intra_graph_pool: none
 #
 #auxloss:
 #    soft_empty: 0.01
