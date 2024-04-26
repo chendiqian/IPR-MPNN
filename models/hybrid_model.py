@@ -8,6 +8,7 @@ from torch_geometric.data import HeteroData
 class HybridModel(torch.nn.Module):
     def __init__(self,
                  base2centroid_model: torch.nn.Module,
+                 assignment: str,
                  hetero_gnn: torch.nn.Module,
 
                  jk_func: Callable,
@@ -16,6 +17,8 @@ class HybridModel(torch.nn.Module):
         super(HybridModel, self).__init__()
 
         self.base2centroid_model = base2centroid_model
+        self.assignment = assignment
+        assert assignment in ['rand', 'part']
         self.hetero_gnn = hetero_gnn
 
         self.jk_func = jk_func
@@ -35,7 +38,10 @@ class HybridModel(torch.nn.Module):
         repeats = 1
 
         node_mask = torch.zeros(nnodes, n_centroids, dtype=torch.float, device=device)
-        node_mask[torch.arange(nnodes, device=device), data.partition] = 1.
+        if self.assignment == 'part':
+            node_mask[torch.arange(nnodes, device=device), data.partition] = 1.
+        elif self.assignment == 'rand':
+            node_mask[torch.arange(nnodes, device=device), torch.randint(0, n_centroids, (nnodes,), device=device)] = 1.
 
         if for_plots_only:
             return None, node_mask[None, :, :, None].cpu().numpy(), None, None

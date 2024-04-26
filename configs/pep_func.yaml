@@ -44,6 +44,7 @@ base2centroid:
     dropout: 0.
     centroid_aggr: mean
     num_centroids: 2
+    assignment: part
 
 # the hetero, hierarchical GNN
 hetero:
@@ -59,13 +60,6 @@ hetero:
     delay: 2
     aggr: cat
     parallel: true
-
-sampler:
-    name: simple
-    sample_k: 1  # by default 1, i.e., each node gets assigned to 1 centroid
-    num_ensemble: 1
-    n_samples: 2
-    assign_value: false  # use marginals to assign weights on the node masks
 
 hybrid_model:
     jk: identity

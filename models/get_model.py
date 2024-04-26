@@ -109,6 +109,7 @@ def get_model(args, device):
 
         hybrid_model = HybridModel(
             base2centroid_model=base2centroid_model,
+            assignment=args.base2centroid.assignment,
             hetero_gnn=hetero_mpnn,
 
             jk_func=partial(jumping_knowledge, jk=args.hybrid_model.jk),
