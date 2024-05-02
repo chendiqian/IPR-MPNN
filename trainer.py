@@ -153,13 +153,13 @@ class Trainer:
                         "base": x,
                         "centroid": centr_emb
                     }
-                    base_embeddings = hetero_model.partial_forward(input_embs, data=data, has_edge_attr=has_edge_attr, layer_list=layer_list)
-                    return base_embeddings[-1][(u,v), :] #return the embeddings of the most distant pair
+                    fwd_embs = hetero_model.partial_forward(input_embs, data=data, has_edge_attr=has_edge_attr, layer_list=layer_list)
+                    return fwd_embs[-1][(u,v), :] #return the embeddings of the most distant pair
                 
                 layerwise_norms_same = []
                 layerwise_norms_diff = []
 
-                for layer_list, x, centr_emb in zip(layers_list, base_embeddings, centroid_embeddings):
+                for layer_idx, (layer_list, x, centr_emb) in enumerate(zip(layers_list, base_embeddings, centroid_embeddings)):
                     model_fwd = partial(forward_fn, centr_emb=centr_emb, data=data_hetero, has_edge_attr=has_edge_attr, layer_list=layer_list)
                     out_u_idx, out_v_idx = 0, 1
 
@@ -194,7 +194,7 @@ class Trainer:
                 norms_diff.append(layerwise_norms_diff)
 
             print('Done computing sensitivity for batch...')
-            break
+            # break
 
         return norms_same, norms_diff
 

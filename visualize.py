@@ -108,7 +108,7 @@ class Plotter:
                                 new_node_idx = g.edge_index.max() + cluster + 1
                                 new_edges = torch.stack([torch.full_like(nodes_connected_to_cluster, new_node_idx), nodes_connected_to_cluster])
                                 updated_edge_index = torch.cat([updated_edge_index, to_undirected(new_edges).to(g.edge_index.device)], dim=1)
-                                new_random_node = torch.rand((1, g.x.shape[1]), device=g.x.device)
+                                new_random_node = torch.rand((1, g.x.shape[1]), device=g.x.device) if len(g.x.shape) > 1 else torch.rand((1,), device=g.x.device) 
                                 updated_node_list = torch.cat([updated_node_list, new_random_node], dim=0)
                             
                             g_updated = torch_geometric.data.Data(x=updated_node_list, edge_index=updated_edge_index)

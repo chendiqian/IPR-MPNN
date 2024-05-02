@@ -164,9 +164,9 @@ def main(args, wandb):
                     pkl.dump(initial_total_resistance_mean_epoch, f)
                 with open('initial_total_resistance_std.pkl', 'wb') as f:
                     pkl.dump(initial_total_resistance_std_epoch, f)
-                with open('rewired_total_resistance_mean.pkl', 'wb') as f:
+                with open(f'rewired_total_resistance_mean{args.dataset.lower()}_{args.scorer_model.num_centroids}.pkl', 'wb') as f:
                     pkl.dump(rewired_total_resistance_mean_epoch, f)
-                with open('rewired_total_resistance_std.pkl', 'wb') as f:
+                with open(f'rewired_total_resistance_std{args.dataset.lower()}_{args.scorer_model.num_centroids}.pkl', 'wb') as f:
                     pkl.dump(rewired_total_resistance_std_epoch, f)
 
 
@@ -175,13 +175,13 @@ def main(args, wandb):
             model.load_state_dict(best_model)
 
 
-            norms_same, norms_diff = trainer.get_sensitivity(val_loader, model)
+            # norms_same, norms_diff = trainer.get_sensitivity(val_loader, model)
 
-            # dump them
-            with open('norms_same.pkl', 'wb') as f:
-                pkl.dump(norms_same, f)
-            with open('norms_diff.pkl', 'wb') as f:
-                pkl.dump(norms_diff, f)
+            # # dump them
+            # with open(f'norms_same_{args.dataset.lower()}_conv{args.hetero.num_conv_layers}.pkl', 'wb') as f:
+            #     pkl.dump(norms_same, f)
+            # with open(f'norms_diff_{args.dataset.lower()}_conv{args.hetero.num_conv_layers}.pkl', 'wb') as f:
+            #     pkl.dump(norms_diff, f)
 
             with torch.no_grad():
                 test_loss, test_metric = trainer.test(test_loader, model, None)
