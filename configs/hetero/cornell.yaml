@@ -17,7 +17,7 @@ max_epoch: 1000
 min_epoch: 100
 patience: 100
 scheduler_type: cos_with_warmup
-scheduler_patience: 50
+scheduler_patience: 25
 log_test: true
 
 # encoder
@@ -26,13 +26,13 @@ encoder: null
 #scorer_model: none
 scorer_model:
     conv: gin
-    hidden: 64
+    hidden: 128
     num_conv_layers: 0
-    num_mlp_layers: 4
+    num_mlp_layers: 2
     norm: graph_norm
     activation: gelu
     dropout: 0.
-    num_centroids: 2
+    num_centroids: 4
 
 # extract the base nodes to super nodes
 base2centroid:
@@ -41,38 +41,29 @@ base2centroid:
 # the hetero, hierarchical GNN
 hetero:
     conv: gine
-    hidden: 128
-    cent_hidden: 256
+    hidden: 256
+    cent_hidden: 384
     num_conv_layers: 1
     num_mlp_layers: 2
     norm: graph_norm
     activation: gelu
     dropout: 0.
-    residual: false
+    residual: true
     delay: 2
     aggr: mean
-    parallel: false
+    parallel: true
 
 sampler:
     name: simple
     sample_k: 1  # by default 1, i.e., each node gets assigned to 1 centroid
-    num_ensemble: 1
-    n_samples: 1
-    assign_value: true  # use marginals to assign weights on the node masks
+    num_ensemble: 2
+    n_samples: 2
+    assign_value: false  # use marginals to assign weights on the node masks
 
 hybrid_model:
-    jk: none
+    jk: identity
     target: base
-    inter_pred_layer: 1
-    intra_pred_layer: 3
+    inter_pred_layer: 3
+    intra_pred_layer: 1
     inter_ensemble_pool: mean
     intra_graph_pool: root
-
-#plots:
-#    plot_every: 50
-#    plot_folder: './plots'
-#    mask: true
-#    score: true
-
-#auxloss:
-#    scorer_label_supervised: 0.7
