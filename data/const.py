@@ -56,6 +56,7 @@ DATASET_FEATURE_STAT_DICT = {
     'wisconsin': {'node': 1703, 'edge': 0, 'num_class': 5},
 
     'amazon-ratings': {'node': 300, 'edge': 0, 'num_class': 5},
+    'roman-empire': {'node': 300, 'edge': 0, 'num_class': 18},
 }
 
 TASK_TYPE_DICT = {
@@ -87,6 +88,7 @@ TASK_TYPE_DICT = {
     'wisconsin': 'acc',
 
     'amazon-ratings': 'acc',
+    'roman-empire': 'acc',
 
     'tree_2': 'acc',
     'tree_3': 'acc',
@@ -164,6 +166,7 @@ CRITERION_DICT = {
     'texas': nn.CrossEntropyLoss(),
     'wisconsin': nn.CrossEntropyLoss(),
     'amazon-ratings': nn.CrossEntropyLoss(),
+    'roman-empire': nn.CrossEntropyLoss(),
 }
 
 SCHEDULER_MODE = {
@@ -189,6 +192,7 @@ ENCODER_TYPE_DICT = {
     'texas': {'bond': None, 'atom': 'linear'},
     'wisconsin': {'bond': None, 'atom': 'linear'},
     'amazon-ratings': {'bond': None, 'atom': 'linear'},
+    'roman-empire': {'bond': None, 'atom': 'linear'},
     'csl': {'bond': 'linear', 'atom': 'linear'},
     'exp': {'bond': None, 'atom': 'exp'},
     'proteins_full': {'bond': None, 'atom': 'linear'},

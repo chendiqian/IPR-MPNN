@@ -1,4 +1,6 @@
 import os
+import pdb
+
 import torch
 from collections import defaultdict
 from functools import partial
@@ -113,7 +115,10 @@ def get_data(args: Config, force_subset):
         train_set, val_set, test_set, std = get_treedataset(args, force_subset)
     elif args.dataset.lower().startswith('leafcolor'):
         train_set, val_set, test_set, std = get_leafcolordataset(args, force_subset=force_subset)
-    elif args.dataset.lower() in ['amazon-ratings', 'cornell', 'texas', 'wisconsin']:
+    elif args.dataset.lower() in ['cornell', 'texas', 'wisconsin']:
+        train_set, val_set, test_set, std = get_webkb(args, force_subset)
+        task = 'node'
+    elif args.dataset.lower() in ['amazon-ratings', 'roman-empire']:
         train_set, val_set, test_set, std = get_hetero(args, force_subset)
         task = 'node'
     elif args.dataset.lower().startswith('peptides'):
@@ -149,9 +154,12 @@ def get_data(args: Config, force_subset):
             val_set = [val_set]
             test_set = [test_set]
 
-        train_loaders = [AttributedDataLoader(loader=PrefetchLoader(dataloader(t), device=device), std=std, task=task) for i, t in enumerate(train_set)]
-        val_loaders = [AttributedDataLoader(loader=PrefetchLoader(dataloader(t), device=device), std=std, task=task) for i, t in enumerate(val_set)]
-        test_loaders = [AttributedDataLoader(loader=PrefetchLoader(dataloader(t), device=device), std=std, task=task) for i, t in enumerate(test_set)]
+        train_loaders = [AttributedDataLoader(loader=PrefetchLoader(dataloader(t), device=device), std=std, task=task)
+                         for i, t in enumerate(train_set)]
+        val_loaders = [AttributedDataLoader(loader=PrefetchLoader(dataloader(t), device=device), std=std, task=task) for
+                       i, t in enumerate(val_set)]
+        test_loaders = [AttributedDataLoader(loader=PrefetchLoader(dataloader(t), device=device), std=std, task=task)
+                        for i, t in enumerate(test_set)]
     else:  # for plots
         assert isinstance(train_set, DATASET)
         train_loaders = AttributedDataLoader(loader=dataloader(train_set), std=std, task=task)
@@ -374,6 +382,7 @@ def get_qm9(args: Config, force_subset: bool):
 
     return train_set, val_set, test_set, std[task_id]
 
+
 def get_alchemy(args: Config, force_subset: bool):
     pre_transform = get_pretransform(args)
     transform = get_transform(args)
@@ -418,6 +427,7 @@ def get_alchemy(args: Config, force_subset: bool):
         test_set = test_set[:1]
 
     return train_set, val_set, test_set, std
+
 
 def get_zinc(args: Config, force_subset: bool):
     pre_transform = get_pretransform(args)
@@ -477,18 +487,13 @@ def get_zinc(args: Config, force_subset: bool):
     return train_set, val_set, test_set, None
 
 
-def get_hetero(args, force_subset):
+def get_webkb(args, force_subset):
     datapath = os.path.join(args.data_path, args.dataset.lower())
     extra_path = get_additional_path(args)
     if extra_path is not None:
         datapath = os.path.join(datapath, extra_path)
 
-    if args.dataset.lower() in ['cornell', 'texas', 'wisconsin']:
-        extra_pretransforms = [ToUndirected(reduce='mean')]
-        dataset_class = WebKB
-    else:
-        extra_pretransforms = None
-        dataset_class = HeterophilousGraphDataset
+    extra_pretransforms = [ToUndirected(reduce='mean')]
 
     pre_transforms = get_pretransform(args, extra_pretransforms=extra_pretransforms)
     transform = get_transform(args)
@@ -498,10 +503,48 @@ def get_hetero(args, force_subset):
     folds = range(10)
     for split in ['train', 'val', 'test']:
         for fold in folds:
-            dataset = dataset_class(root=datapath,
-                                    name=args.dataset.lower(),
-                                    transform=transform,
-                                    pre_transform=pre_transforms)
+            dataset = WebKB(root=datapath,
+                            name=args.dataset.lower(),
+                            transform=transform,
+                            pre_transform=pre_transforms)
+            mask = getattr(dataset.data, f'{split}_mask')
+            mask = mask[:, fold]
+            dataset.data.y = dataset.data.y[mask]
+            dataset.data.output_mask = mask
+            del dataset.data.train_mask, dataset.data.val_mask, dataset.data.test_mask
+
+            splits[split].append(dataset)
+
+    train_set, val_set, test_set = splits['train'], splits['val'], splits['test']
+
+    if args.debug or force_subset:
+        train_set = train_set[0]
+        val_set = val_set[0]
+        test_set = test_set[0]
+
+    return train_set, val_set, test_set, None
+
+
+def get_hetero(args, force_subset):
+    datapath = os.path.join(args.data_path, args.dataset.lower())
+    extra_path = get_additional_path(args)
+    if extra_path is not None:
+        datapath = os.path.join(datapath, extra_path)
+
+    extra_pretransforms = None
+
+    pre_transforms = get_pretransform(args, extra_pretransforms=extra_pretransforms)
+    transform = get_transform(args)
+
+    splits = {'train': [], 'val': [], 'test': []}
+
+    folds = range(10)
+    for split in ['train', 'val', 'test']:
+        for fold in folds:
+            dataset = HeterophilousGraphDataset(root=datapath,
+                                                name=args.dataset.lower(),
+                                                transform=transform,
+                                                pre_transform=pre_transforms)
             mask = getattr(dataset.data, f'{split}_mask')
             mask = mask[:, fold]
             dataset.data.y = dataset.data.y[mask]
