@@ -29,6 +29,12 @@ class SIMPLESampler(nn.Module):
         flat_scores = scores.permute((0, 2, 1)).reshape(nnodes * ensemble, choices)
 
         N = 2 ** math.ceil(math.log2(choices))
+        if local_k >= N:
+            # we don't need to sample
+            samples = scores.new_ones(self.n_samples, nnodes, choices, ensemble)
+            marginals = scores.new_ones(nnodes, choices, ensemble)
+            return samples, marginals
+
         if (N, local_k) in self.layer_configs:
             layer = self.layer_configs[(N, local_k)]
         else:
