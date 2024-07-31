@@ -16,6 +16,9 @@ num_runs: 5
 max_epoch: 1000
 min_epoch: 100
 patience: 100
+scheduler_type: cos_with_warmup
+scheduler_patience: 50
+log_test: true
 
 # encoder
 encoder: null
@@ -45,12 +48,14 @@ base2centroid:
 hetero:
     conv: gine
     hidden: 320
+    cent_hidden: 256
     num_conv_layers: 1
     num_mlp_layers: 2
     norm: batch_norm
     activation: gelu
     dropout: 0.
     residual: false
+    delay: 2
     aggr: mean
     parallel: false
 
