@@ -186,6 +186,8 @@ ENCODER_TYPE_DICT = {
     'ogbg-molhiv': {'bond': 'ogb', 'atom': 'ogb'},
     'coco-sp': {'bond': 'coco', 'atom': 'coco'},
     'cornell': {'bond': None, 'atom': 'linear'},
+    'texas': {'bond': None, 'atom': 'linear'},
+    'wisconsin': {'bond': None, 'atom': 'linear'},
     'amazon-ratings': {'bond': None, 'atom': 'linear'},
     'csl': {'bond': 'linear', 'atom': 'linear'},
     'exp': {'bond': None, 'atom': 'exp'},
@@ -212,15 +214,4 @@ ENCODER_TYPE_DICT = {
     'leafcolor_6': {'bond': None, 'atom': 'bi_embedding_cat'},
     'leafcolor_7': {'bond': None, 'atom': 'bi_embedding_cat'},
     'leafcolor_8': {'bond': None, 'atom': 'bi_embedding_cat'},
-}
-
-# whether to set cached=True for GCNConv, only True if transductive
-GCN_CACHE = {
-    'zinc': False,
-    'peptides-func': False,
-    'peptides-struct': False,
-    'cornell': True,
-    'amazon-ratings': True,
-    'csl': False,
-    'exp': False,
 }
