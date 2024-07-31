@@ -1,8 +1,8 @@
 wandb:
-    use_wandb: false
-    project: debug
-    entity: chendiqian
-    name: run1_old
+    use_wandb: true
+    project: cornell_vn
+    entity: mls-stuttgart
+    name: 2vn
 
 ckpt: false
 
@@ -29,29 +29,23 @@ scorer_model:
     hidden: 64
     num_conv_layers: 0
     num_mlp_layers: 4
-    norm: batch_norm
+    norm: graph_norm
     activation: gelu
     dropout: 0.
-    num_centroids: 5
+    num_centroids: 2
 
 # extract the base nodes to super nodes
 base2centroid:
-    conv: gine
-    num_conv_layers: 2
-    num_mlp_layers: 3
-    norm: batch_norm
-    activation: gelu
-    dropout: 0.
-    centroid_aggr: mean
+    lazy_init: rand
 
 # the hetero, hierarchical GNN
 hetero:
     conv: gine
-    hidden: 320
+    hidden: 128
     cent_hidden: 256
     num_conv_layers: 1
     num_mlp_layers: 2
-    norm: batch_norm
+    norm: graph_norm
     activation: gelu
     dropout: 0.
     residual: false
@@ -80,5 +74,5 @@ hybrid_model:
 #    mask: true
 #    score: true
 
-auxloss:
-    scorer_label_supervised: 0.7
+#auxloss:
+#    scorer_label_supervised: 0.7
