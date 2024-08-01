@@ -55,15 +55,18 @@ class PlainGNN(torch.nn.Module):
     def __init__(self,
                  node_encoder: torch.nn.Module,
                  prediction_mlp: torch.nn.Module,
+                 graph_pool_idx: str,
                  gnn: torch.nn.Module):
         super(PlainGNN, self).__init__()
         self.node_encoder = node_encoder
         self.prediction_mlp = prediction_mlp
+        self.graph_pool_idx = graph_pool_idx
         self.gnn = gnn
 
     def forward(self, data: Data, *args):
         batch, edge_index, edge_attr = data.batch, data.edge_index, data.edge_attr
+        graph_pool_idx = getattr(data, self.graph_pool_idx)
         x = self.node_encoder(data)
         x = self.gnn(x, edge_index=edge_index, edge_attr=edge_attr, batch=batch)
-        x = self.prediction_mlp(x, None, batch, None)
+        x = self.prediction_mlp(x, None, graph_pool_idx, None)
         return x, None, None, 0.

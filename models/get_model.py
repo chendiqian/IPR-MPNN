@@ -235,5 +235,6 @@ def get_model(args, device):
 
         plain_gnn = PlainGNN(get_atom_encoder_handler(),
                              predictor,
+                             graph_pool_attr,
                              gnn).to(device)
         return plain_gnn
