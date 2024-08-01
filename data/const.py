@@ -57,6 +57,9 @@ DATASET_FEATURE_STAT_DICT = {
 
     'amazon-ratings': {'node': 300, 'edge': 0, 'num_class': 5},
     'roman-empire': {'node': 300, 'edge': 0, 'num_class': 18},
+    'minesweeper': {'node': 7, 'edge': 0, 'num_class': 2},
+    'tolokers': {'node': 10, 'edge': 0, 'num_class': 2},
+    'questions': {'node': 301, 'edge': 0, 'num_class': 2},
 }
 
 TASK_TYPE_DICT = {
@@ -89,6 +92,10 @@ TASK_TYPE_DICT = {
 
     'amazon-ratings': 'acc',
     'roman-empire': 'acc',
+    'minesweeper': 'acc',
+    'tolokers': 'acc',
+    'questions': 'acc',
+
 
     'tree_2': 'acc',
     'tree_3': 'acc',
@@ -167,6 +174,10 @@ CRITERION_DICT = {
     'wisconsin': nn.CrossEntropyLoss(),
     'amazon-ratings': nn.CrossEntropyLoss(),
     'roman-empire': nn.CrossEntropyLoss(),
+    'minesweeper': nn.CrossEntropyLoss(),
+    'tolokers': nn.CrossEntropyLoss(),
+    'questions': nn.CrossEntropyLoss(),
+
 }
 
 SCHEDULER_MODE = {
@@ -193,6 +204,9 @@ ENCODER_TYPE_DICT = {
     'wisconsin': {'bond': None, 'atom': 'linear'},
     'amazon-ratings': {'bond': None, 'atom': 'linear'},
     'roman-empire': {'bond': None, 'atom': 'linear'},
+    'minesweeper': {'bond': None, 'atom': 'linear'},
+    'tolokers': {'bond': None, 'atom': 'linear'},
+    'questions': {'bond': None, 'atom': 'linear'},
     'csl': {'bond': 'linear', 'atom': 'linear'},
     'exp': {'bond': None, 'atom': 'exp'},
     'proteins_full': {'bond': None, 'atom': 'linear'},

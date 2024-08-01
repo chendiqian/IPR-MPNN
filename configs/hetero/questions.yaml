@@ -1,0 +1,177 @@
+program: sweep_run.py
+method: bayes
+entity: mls-stuttgart
+project: questins_vn
+name: questions-sweep-new
+run_cap: 60
+
+metric:
+  goal: maximize
+  name: best_val_metric
+
+parameters:
+  # read data
+  ckpt:
+    value: False
+  dataset:
+    value: questions
+  data_path:
+    value: './datasets'
+  batch_size:
+    value: 1
+  lr:
+    value: 1.e-3
+  weight_decay:
+    value: 0.
+  debug:
+    value: False
+  num_runs:
+    value: 5
+  max_epoch:
+    value: 1000
+  min_epoch:
+    value: 100
+  patience:
+    value: 100
+  scheduler_type:
+    value: cos_with_warmup
+  scheduler_patience:
+    values:
+      - 25
+      - 50
+    distribution: categorical
+  log_test:
+    value: True
+
+  encoder:
+    value: none
+
+  scorer_model.conv:
+    value: gine
+  scorer_model.hidden:
+    values:
+      - 64
+      - 128
+    distribution: categorical
+  scorer_model.num_conv_layers:
+    values:
+      - 0
+      - 2
+      - 3
+      - 4
+    distribution: categorical
+  scorer_model.num_mlp_layers:
+    value: 2
+  scorer_model.norm:
+    value: graph_norm
+  scorer_model.activation:
+    value: gelu
+  scorer_model.dropout:
+    value: 0.
+  scorer_model.num_centroids:
+    values:
+      - 2
+      - 3
+      - 4
+      - 5
+    distribution: categorical
+
+  base2centroid.lazy_init:
+    value: rand
+
+  hetero.conv:
+    value: gine
+  hetero.hidden:
+    values:
+      - 64
+      - 128
+      - 256
+    distribution: categorical
+  hetero.cent_hidden:
+    values:
+      - 128
+      - 256
+      - 384
+    distribution: categorical
+  hetero.num_conv_layers:
+    values:
+      - 1
+      - 2
+      - 3
+      - 4
+    distribution: categorical
+  hetero.num_mlp_layers:
+    values:
+      - 2
+      - 3
+    distribution: categorical
+  hetero.norm:
+    value: graph_norm
+  hetero.activation:
+    value: gelu
+  hetero.dropout:
+    value: 0.
+  hetero.residual:
+    values:
+      - True
+      - False
+    distribution: categorical
+  hetero.delay:
+    values:
+      - 0
+      - 1
+      - 2
+    distribution: categorical
+  hetero.aggr:
+    value: mean
+  hetero.parallel:
+    values:
+      - True
+      - False
+    distribution: categorical
+
+  sampler.name:
+    value: simple
+  sampler.sample_k:
+    value: 1  # by default 1, i.e., each node gets assigned to 1 centroid
+  sampler.num_ensemble:
+    values:
+      - 1
+      - 2
+      - 3
+    distribution: categorical
+  sampler.n_samples:
+    values:
+      - 1
+      - 2
+      - 3
+    distribution: categorical
+  sampler.assign_value:
+    values:
+      - True
+      - False
+    distribution: categorical
+
+  hybrid_model.jk:
+    values:
+      - none
+      - identity
+    distribution: categorical
+  hybrid_model.target:
+    value: base
+  hybrid_model.inter_pred_layer:
+    values:
+      - 1
+      - 2
+      - 3
+    distribution: categorical
+  hybrid_model.intra_pred_layer:
+    values:
+      - 1
+      - 2
+      - 3
+    distribution: categorical
+  hybrid_model.inter_ensemble_pool:
+    value: mean
+  hybrid_model.intra_graph_pool:
+    value: root

@@ -118,7 +118,7 @@ def get_data(args: Config, force_subset):
     elif args.dataset.lower() in ['cornell', 'texas', 'wisconsin']:
         train_set, val_set, test_set, std = get_webkb(args, force_subset)
         task = 'node'
-    elif args.dataset.lower() in ['amazon-ratings', 'roman-empire']:
+    elif args.dataset.lower() in ['amazon-ratings', 'roman-empire', 'minesweeper', 'tolokers', 'questions']:
         train_set, val_set, test_set, std = get_hetero(args, force_subset)
         task = 'node'
     elif args.dataset.lower().startswith('peptides'):
