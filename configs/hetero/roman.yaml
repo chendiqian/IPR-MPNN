@@ -1,0 +1,69 @@
+wandb:
+    use_wandb: false
+    project: roman
+    entity: mls-stuttgart
+    name: 2vn
+
+ckpt: false
+
+dataset: roman-empire
+data_path: ./datasets
+batch_size: 1
+lr: 1.e-3
+weight_decay: 0.
+debug: false
+num_runs: 5
+max_epoch: 1000
+min_epoch: 100
+patience: 100
+scheduler_type: cos_with_warmup
+scheduler_patience: 25
+log_test: true
+
+# encoder
+encoder: null
+
+#scorer_model: none
+scorer_model:
+    conv: gin
+    hidden: 64
+    num_conv_layers: 2
+    num_mlp_layers: 2
+    norm: graph_norm
+    activation: gelu
+    dropout: 0.
+    num_centroids: 3
+
+# extract the base nodes to super nodes
+base2centroid:
+    lazy_init: rand
+
+# the hetero, hierarchical GNN
+hetero:
+    conv: gine
+    hidden: 256
+    cent_hidden: 256
+    num_conv_layers: 3
+    num_mlp_layers: 2
+    norm: graph_norm
+    activation: gelu
+    dropout: 0.
+    residual: false
+    delay: 1
+    aggr: mean
+    parallel: true
+
+sampler:
+    name: simple
+    sample_k: 1  # by default 1, i.e., each node gets assigned to 1 centroid
+    num_ensemble: 3
+    n_samples: 1
+    assign_value: false  # use marginals to assign weights on the node masks
+
+hybrid_model:
+    jk: none
+    target: base
+    inter_pred_layer: 1
+    intra_pred_layer: 1
+    inter_ensemble_pool: mean
+    intra_graph_pool: root
