@@ -2,7 +2,7 @@ wandb:
     use_wandb: true
     project: baselines
     entity: mls-stuttgart
-    name: pepfunc_1vn
+    name: pepstr_1vn
 
 ckpt: false
 
