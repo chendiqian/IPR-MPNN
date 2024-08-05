@@ -1,0 +1,80 @@
+wandb:
+    use_wandb: true
+    project: baselines
+    entity: mls-stuttgart
+    name: pepfunc_3vn_k2
+
+ckpt: false
+
+dataset: peptides-func
+data_path: ./datasets
+batch_size: 200
+lr: 1.e-3
+weight_decay: 0.
+debug: false
+num_runs: 3
+max_epoch: 1000
+min_epoch: 500
+patience: 200
+scheduler_type: cos_with_warmup
+scheduler_patience: 50
+log_test: true
+
+# encoder
+encoder:
+    rwse:
+        kernel: 20
+        layers: 2
+        dim_pe: 32
+        raw_norm_type: 'BatchNorm'
+
+    lap:
+        max_freqs: 4
+        dim_pe: 32
+        layers: 1
+        raw_norm_type: null
+
+#scorer_model: none
+scorer_model:
+    conv: gine
+    hidden: 128
+    num_conv_layers: 0
+    num_mlp_layers: 2
+    norm: batch_norm
+    activation: gelu
+    dropout: 0.
+    num_centroids: 3
+
+# extract the base nodes to super nodes
+base2centroid:
+    lazy_init: rand
+
+# the hetero, hierarchical GNN
+hetero:
+    conv: gine
+    hidden: 128
+    cent_hidden: 256
+    num_conv_layers: 10
+    num_mlp_layers: 2
+    norm: batch_norm
+    activation: gelu
+    dropout: 0.
+    residual: true
+    delay: 2
+    aggr: cat
+    parallel: true
+
+sampler:
+    name: simple
+    sample_k: 2  # by default 1, i.e., each node gets assigned to 1 centroid
+    num_ensemble: 1
+    n_samples: 2
+    assign_value: false  # use marginals to assign weights on the node masks
+
+hybrid_model:
+    jk: identity
+    target: centroid
+    inter_pred_layer: 2
+    intra_pred_layer: 2
+    inter_ensemble_pool: mean
+    intra_graph_pool: mean
