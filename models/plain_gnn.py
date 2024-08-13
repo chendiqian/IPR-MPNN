@@ -59,7 +59,7 @@ class PlainGNN(torch.nn.Module):
                  gnn: torch.nn.Module):
         super(PlainGNN, self).__init__()
         self.node_encoder = node_encoder
-        self.prediction_mlp = prediction_mlp
+        self.pred_head = prediction_mlp
         self.graph_pool_idx = graph_pool_idx
         self.gnn = gnn
 
@@ -68,5 +68,5 @@ class PlainGNN(torch.nn.Module):
         graph_pool_idx = getattr(data, self.graph_pool_idx)
         x = self.node_encoder(data)
         x = self.gnn(x, edge_index=edge_index, edge_attr=edge_attr, batch=batch)
-        x = self.prediction_mlp(x, None, graph_pool_idx, None)
+        x = self.pred_head(x, None, graph_pool_idx, None)
         return x, None, None, 0.
