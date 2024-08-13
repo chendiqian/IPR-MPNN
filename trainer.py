@@ -3,6 +3,7 @@ from collections import defaultdict
 
 import torch
 from data.metrics import Evaluator
+from data.utils import compute_oversmoothing
 
 from torch_geometric.utils import to_dense_batch
 
@@ -200,6 +201,29 @@ class Trainer:
         if scheduler is not None:
             scheduler.step(epoch) if 'LambdaLR' in str(type(scheduler)) else scheduler.step(val_metrics[self.target_metric])
         return val_losses.item() / num_labels, val_metrics
+
+    @torch.no_grad()
+    def compute_dirichlet(self, train_loader, val_loader, test_loader, model):
+        model.eval()
+
+        # todo: a bad hack
+        if isinstance(model.pred_head, torch.nn.ModuleList):
+            for head in model.pred_head:
+                func = head.intra_graph_pool
+                head.intra_graph_pool = lambda x, *args: x  # do not mask the outputs
+        else:
+            func = model.pred_head.intra_graph_pool
+            model.pred_head.intra_graph_pool = lambda x, *args: x  # do not mask the outputs
+
+        dir_energy = compute_oversmoothing(model, train_loader, val_loader, test_loader, self.device)
+
+        if isinstance(model.pred_head, torch.nn.ModuleList):
+            for head in model.pred_head:
+                head.intra_graph_pool = func
+        else:
+            model.pred_head.intra_graph_pool = func
+
+        return dir_energy.item()
 
     def clear_stats(self):
         self.best_val_loss = 1e5

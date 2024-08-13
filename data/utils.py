@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import pdb
 from ast import literal_eval
 from collections import namedtuple, defaultdict
 from typing import Any, Dict, List, Tuple, Union, Optional
@@ -238,3 +239,25 @@ def weighted_cross_entropy(pred, y):
         loss = F.binary_cross_entropy_with_logits(pred, y.float(),
                                                   weight=weight[y])
         return loss
+
+
+def compute_oversmoothing(model, train_loader, val_loader, test_loader, device):
+    total_layerwise_energies = 0.
+    num_total_nodes = 0.
+
+    with torch.no_grad():
+        for loader in [train_loader, val_loader, test_loader]:
+            for data in loader:
+                data.to(device)
+
+                edge_index = data.edge_index
+                embeddings, *_ = model(data)
+                if type(embeddings) == list:
+                    embeddings = embeddings[-1]
+
+                sq_node_diff = torch.sum((embeddings[edge_index[0]] - embeddings[edge_index[1]]) ** 2, dim=-1)
+                total_layerwise_energies += sq_node_diff.sum(0)
+                num_total_nodes += sq_node_diff.shape[0]
+
+    layerwise_energies = torch.sqrt(total_layerwise_energies / num_total_nodes)
+    return layerwise_energies

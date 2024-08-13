@@ -15,8 +15,7 @@ from tqdm import tqdm
 from data.const import CRITERION_DICT, TASK_TYPE_DICT
 from data.metrics import Evaluator
 from data.get_data import get_data
-from data.utils import IsBetter
-from data.utils import Config, args_canonize, args_unify
+from data.utils import Config, args_canonize, args_unify, IsBetter
 from models.get_model import get_model
 from trainer import Trainer
 from visualize import Plotter
@@ -71,6 +70,7 @@ def main(args, wandb):
 
     best_val_metrics = [[] for _ in range(args.num_runs)]
     test_metrics = [[] for _ in range(args.num_runs)]
+    dir_energies = [[] for _ in range(args.num_runs)]
 
     for _run in range(args.num_runs):
         for _fold, (train_loader, val_loader, test_loader) in enumerate(
@@ -148,21 +148,27 @@ def main(args, wandb):
             model.load_state_dict(best_model)
             with torch.no_grad():
                 test_loss, test_metric = trainer.test(test_loader, model, None)
+                dir_energy = trainer.compute_dirichlet(train_loader.loader, val_loader.loader, test_loader.loader, model)
             test_metrics[_run].append(test_metric[target_metric])
             best_val_metrics[_run].append(trainer.best_val_metric)
+            dir_energies[_run].append(dir_energy)
 
             logging.info(f'Best val metric: {trainer.best_val_metric}')
             logging.info(f'test metric: {test_metric[target_metric]}')
+            logging.info(f'dirichlet energy: {dir_energy}')
 
             trainer.clear_stats()
 
     test_metrics = np.array(test_metrics)
     best_val_metrics = np.array(best_val_metrics)
+    dir_energies = np.array(dir_energies)
 
     wandb.run.summary['best_val_metric'] = np.mean(best_val_metrics)
     wandb.run.summary['best_val_metric_std'] = np.std(best_val_metrics)
     wandb.run.summary['test_metric'] = np.mean(test_metrics)
     wandb.run.summary['test_metric_std'] = np.std(test_metrics)
+    wandb.run.summary['dir_energy'] = np.mean(dir_energies)
+    wandb.run.summary['dir_energy_std'] = np.std(dir_energies)
     if args.dataset.lower() == 'qm9':
         qm9_task_id = args.task_id
         qm9_task_name = QM9_TASK_NAMES[qm9_task_id]
