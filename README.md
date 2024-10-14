@@ -1,6 +1,6 @@
 # Probabilistic Graph Rewiring via Virtual Nodes
 
-<img src="https://github.com/chendiqian/PR-MPNN/blob/main/main-figure.png" alt="drawing" width="800"/>
+<img src="https://github.com/chendiqian/DataHier/blob/master/main-figure.svg" alt="drawing" width="800"/>
 <p align="center">
 </p>
 
