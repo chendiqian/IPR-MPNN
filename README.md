@@ -31,3 +31,6 @@ We provide yaml files under `configs`, run e.g.
 `python run.py with PATH_TO_CONFIG`
 
 In case of issues or other questions, please contact [chendi.qian@log.rwth-aachen.de](mailto:chendi.qian@log.rwth-aachen.de)
+
+## Known issue
+If you are using a different version of PyTorch, you might have some error in the gradients produced by SIMPLE gradient estimator. You might want to check if SIMPLE gives nonzero gradients.
